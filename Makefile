@@ -47,43 +47,53 @@ KIND := ${BIN}/kind-${KIND_VERSION}
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[0-9a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
+.PHONY: test
 test: ## Run tests
 test: generate fmt vet manifests
 	go test ./... -coverprofile cover.out
 
+.PHONY: manager
 manager: ## Build manager binary
 manager: generate fmt vet
 	go build -o bin/manager main.go
 
+.PHONY: run
 run: ## Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
 	go run ./main.go
 
+.PHONY: deploy
 deploy: ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: ${KUSTOMIZE}
 	cd config/manager && ${KUSTOMIZE} edit set image controller=${DOCKER_IMAGE}
 	${KUSTOMIZE} build config/default | kubectl apply -f -
 
+.PHONY: manifests
 manifests: ## Generate manifests e.g. CRD, RBAC etc.
 manifests: ${CONTROLLER_GEN}
 	$(CONTROLLER_GEN) rbac:roleName=manager-role paths="./..." output:rbac:artifacts:config=config/rbac
 
+.PHONY: fmt
 fmt: ## Run go fmt against code
 fmt:
 	go fmt ./...
 
+.PHONY: vet
 vet: ## Run go vet against code
 vet:
 	go vet ./...
 
+.PHONY: generate
 generate: ## Generate code
 generate: ${CONTROLLER_GEN}
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
+.PHONY: docker-build
 docker-build: ## Build the docker image
 docker-build:
 	docker build . -t ${DOCKER_IMAGE}
 
+.PHONY: docker-push
 docker-push: ## Push the docker image
 docker-push:
 	docker push ${DOCKER_IMAGE}
@@ -92,7 +102,6 @@ docker-push:
 kind-load: ## Load the docker image into the Kind cluster
 kind-load: ${KIND}
 	${KIND} load docker-image ${DOCKER_IMAGE}
-
 
 # ==================================
 # Download: tools in ${BIN}
