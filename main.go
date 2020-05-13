@@ -47,6 +47,7 @@ func main() {
 		metricsAddr          string
 		enableLeaderElection bool
 		leaderElectionID     string
+		debugLogging         bool
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
@@ -55,9 +56,10 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&leaderElectionID, "leader-election-id", "signer-venafi-leader-election",
 		"The name of the configmap used to coordinate leader election between controller-managers.")
+	flag.BoolVar(&debugLogging, "debug-logging", true, "Enable debug logging.")
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+	ctrl.SetLogger(zap.New(zap.UseDevMode(debugLogging)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
