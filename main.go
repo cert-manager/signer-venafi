@@ -73,10 +73,10 @@ func main() {
 
 	if err = (&controllers.CertificateSigningRequestReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CertificateSigningRequest"),
+		Log:    ctrl.Log.WithName("controllers").WithName("CertificateSigningRequestReconciler"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CertificateSigningRequest")
+		setupLog.Error(err, "unable to create controller", "controller", "CertificateSigningRequestReconciler")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
