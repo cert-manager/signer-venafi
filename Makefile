@@ -23,6 +23,9 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+BIN := ${CURDIR}/bin
+export PATH := ${BIN}:${PATH}
+
 all: manager
 
 # Run tests
