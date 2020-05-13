@@ -1,5 +1,18 @@
-# Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+MAKEFLAGS += --warn-undefined-variables
+SHELL := bash
+.SHELLFLAGS := -eu -o pipefail -c
+.DELETE_ON_ERROR:
+.SUFFIXES:
+
+# The semver version number which will be used as the Docker image tag
+# Defaults to the output of git describe.
+VERSION ?= $(shell git describe --tags --dirty)
+
+# Docker image name parameters
+DOCKER_PREFIX ?= quay.io/cert-manager/signer-venafi-
+DOCKER_TAG ?= ${VERSION}
+DOCKER_IMAGE ?= ${DOCKER_PREFIX}controller:${DOCKER_TAG}
+
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -9,6 +22,9 @@ GOBIN=$(shell go env GOPATH)/bin
 else
 GOBIN=$(shell go env GOBIN)
 endif
+
+BIN := ${CURDIR}/bin
+export PATH := ${BIN}:${PATH}
 
 all: manager
 
@@ -34,7 +50,7 @@ uninstall: manifests
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests
-	cd config/manager && kustomize edit set image controller=${IMG}
+	cd config/manager && kustomize edit set image controller=${DOCKER_IMAGE}
 	kustomize build config/default | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
@@ -54,12 +70,16 @@ generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
-docker-build: test
-	docker build . -t ${IMG}
+docker-build:
+	docker build . -t ${DOCKER_IMAGE}
 
 # Push the docker image
 docker-push:
-	docker push ${IMG}
+	docker push ${DOCKER_IMAGE}
+
+.PHONY: kind-load
+kind-load:
+	kind load docker-image ${DOCKER_IMAGE}
 
 # find or download controller-gen
 # download controller-gen if necessary
