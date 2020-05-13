@@ -16,15 +16,20 @@ DOCKER_IMAGE ?= ${DOCKER_PREFIX}controller:${DOCKER_TAG}
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
-# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
-ifeq (,$(shell go env GOBIN))
-GOBIN=$(shell go env GOPATH)/bin
-else
-GOBIN=$(shell go env GOBIN)
-endif
+# BIN is the directory where build tools such controller-gen and kustomize will
+# be installed.
+# BIN is inherited and exported so that it gets passed down to the make process
+# that is launched by verify.sh
+# This ensures that test tools get installed in the original directory rather
+# than in the temporary copy.
+export BIN ?= ${CURDIR}/bin
 
-BIN := ${CURDIR}/bin
-export PATH := ${BIN}:${PATH}
+# Make sure BIN is on the PATH
+export PATH := $(BIN):$(PATH)
+
+# controller-tools
+CONTROLLER_GEN_VERSION := 0.3.0
+CONTROLLER_GEN := ${BIN}/controller-gen-0.3.0
 
 all: manager
 
@@ -54,7 +59,7 @@ deploy: manifests
 	kustomize build config/default | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen
+manifests: ${CONTROLLER_GEN}
 	$(CONTROLLER_GEN) rbac:roleName=manager-role paths="./..." output:rbac:artifacts:config=config/rbac
 
 # Run go fmt against code
@@ -66,7 +71,7 @@ vet:
 	go vet ./...
 
 # Generate code
-generate: controller-gen
+generate: ${CONTROLLER_GEN}
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
@@ -81,19 +86,15 @@ docker-push:
 kind-load:
 	kind load docker-image ${DOCKER_IMAGE}
 
-# find or download controller-gen
-# download controller-gen if necessary
-controller-gen:
-ifeq (, $(shell which controller-gen))
-	@{ \
-	set -e ;\
-	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$CONTROLLER_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.5 ;\
-	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
-	}
-CONTROLLER_GEN=$(GOBIN)/controller-gen
-else
-CONTROLLER_GEN=$(shell which controller-gen)
-endif
+
+# ==================================
+# Download: tools in ${BIN}
+# ==================================
+${BIN}:
+	mkdir -p ${BIN}
+
+${CONTROLLER_GEN}: | ${BIN}
+# Prevents go get from modifying our go.mod file.
+# See https://github.com/kubernetes-sigs/kubebuilder/issues/909
+	cd /tmp; GOBIN=${BIN} GO111MODULE=on go get sigs.k8s.io/controller-tools/cmd/controller-gen@v${CONTROLLER_GEN_VERSION}
+	mv ${BIN}/controller-gen ${CONTROLLER_GEN}
