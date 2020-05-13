@@ -1,4 +1,9 @@
 MAKEFLAGS += --warn-undefined-variables
+SHELL := bash
+.SHELLFLAGS := -eu -o pipefail -c
+.DELETE_ON_ERROR:
+.SUFFIXES:
+
 # The semver version number which will be used as the Docker image tag
 # Defaults to the output of git describe.
 VERSION ?= $(shell git describe --tags --dirty)
