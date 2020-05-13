@@ -13,6 +13,9 @@ DOCKER_PREFIX ?= quay.io/cert-manager/signer-venafi-
 DOCKER_TAG ?= ${VERSION}
 DOCKER_IMAGE ?= ${DOCKER_PREFIX}controller:${DOCKER_TAG}
 
+OS := $(shell go env GOOS)
+ARCH := $(shell go env GOARCH)
+
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -31,6 +34,12 @@ export PATH := $(BIN):$(PATH)
 CONTROLLER_GEN_VERSION := 0.3.0
 CONTROLLER_GEN := ${BIN}/controller-gen-0.3.0
 
+# Kustomize
+KUSTOMIZE_VERSION := 3.5.5
+KUSTOMIZE_DOWNLOAD_URL := https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_${OS}_${ARCH}.tar.gz
+KUSTOMIZE_LOCAL_ARCHIVE := /tmp/kustomize_v${KUSTOMIZE_VERSION}_${OS}_${ARCH}.tar.gz
+KUSTOMIZE := ${BIN}/kustomize-${KUSTOMIZE_VERSION}
+
 all: manager
 
 # Run tests
@@ -46,17 +55,17 @@ run: generate fmt vet manifests
 	go run ./main.go
 
 # Install CRDs into a cluster
-install: manifests
-	kustomize build config/crd | kubectl apply -f -
+install: ${KUSTOMIZE}
+	${KUSTOMIZE} build config/crd | kubectl apply -f -
 
 # Uninstall CRDs from a cluster
-uninstall: manifests
-	kustomize build config/crd | kubectl delete -f -
+uninstall: ${KUSTOMIZE}
+	${KUSTOMIZE} build config/crd | kubectl delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests
-	cd config/manager && kustomize edit set image controller=${DOCKER_IMAGE}
-	kustomize build config/default | kubectl apply -f -
+deploy: ${KUSTOMIZE}
+	cd config/manager && ${KUSTOMIZE} edit set image controller=${DOCKER_IMAGE}
+	${KUSTOMIZE} build config/default | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: ${CONTROLLER_GEN}
@@ -98,3 +107,8 @@ ${CONTROLLER_GEN}: | ${BIN}
 # See https://github.com/kubernetes-sigs/kubebuilder/issues/909
 	cd /tmp; GOBIN=${BIN} GO111MODULE=on go get sigs.k8s.io/controller-tools/cmd/controller-gen@v${CONTROLLER_GEN_VERSION}
 	mv ${BIN}/controller-gen ${CONTROLLER_GEN}
+
+${KUSTOMIZE}: | ${BIN}
+	curl -sSL -o ${KUSTOMIZE_LOCAL_ARCHIVE} ${KUSTOMIZE_DOWNLOAD_URL}
+	tar -C ${BIN} -x -f ${KUSTOMIZE_LOCAL_ARCHIVE}
+	mv ${BIN}/kustomize ${KUSTOMIZE}
