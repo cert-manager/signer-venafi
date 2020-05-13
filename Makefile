@@ -3,6 +3,7 @@ SHELL := bash
 .SHELLFLAGS := -eu -o pipefail -c
 .DELETE_ON_ERROR:
 .SUFFIXES:
+.DEFAULT_GOAL := help
 
 # The semver version number which will be used as the Docker image tag
 # Defaults to the output of git describe.
@@ -41,51 +42,54 @@ KUSTOMIZE := ${BIN}/kustomize-${KUSTOMIZE_VERSION}
 KIND_VERSION := 0.8.1
 KIND := ${BIN}/kind-${KIND_VERSION}
 
+# from https://suva.sh/posts/well-documented-makefiles/
+.PHONY: help
+help: ## Display this help
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[0-9a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
-all: manager
-
-# Run tests
+test: ## Run tests
 test: generate fmt vet manifests
 	go test ./... -coverprofile cover.out
 
-# Build manager binary
+manager: ## Build manager binary
 manager: generate fmt vet
 	go build -o bin/manager main.go
 
-# Run against the configured Kubernetes cluster in ~/.kube/config
+run: ## Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
 	go run ./main.go
 
-# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+deploy: ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: ${KUSTOMIZE}
 	cd config/manager && ${KUSTOMIZE} edit set image controller=${DOCKER_IMAGE}
 	${KUSTOMIZE} build config/default | kubectl apply -f -
 
-# Generate manifests e.g. CRD, RBAC etc.
+manifests: ## Generate manifests e.g. CRD, RBAC etc.
 manifests: ${CONTROLLER_GEN}
 	$(CONTROLLER_GEN) rbac:roleName=manager-role paths="./..." output:rbac:artifacts:config=config/rbac
 
-# Run go fmt against code
+fmt: ## Run go fmt against code
 fmt:
 	go fmt ./...
 
-# Run go vet against code
+vet: ## Run go vet against code
 vet:
 	go vet ./...
 
-# Generate code
+generate: ## Generate code
 generate: ${CONTROLLER_GEN}
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-# Build the docker image
+docker-build: ## Build the docker image
 docker-build:
 	docker build . -t ${DOCKER_IMAGE}
 
-# Push the docker image
+docker-push: ## Push the docker image
 docker-push:
 	docker push ${DOCKER_IMAGE}
 
 .PHONY: kind-load
+kind-load: ## Load the docker image into the Kind cluster
 kind-load: ${KIND}
 	${KIND} load docker-image ${DOCKER_IMAGE}
 
