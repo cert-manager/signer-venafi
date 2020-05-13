@@ -77,6 +77,10 @@ docker-build:
 docker-push:
 	docker push ${DOCKER_IMAGE}
 
+.PHONY: kind-load
+kind-load:
+	kind load docker-image ${DOCKER_IMAGE}
+
 # find or download controller-gen
 # download controller-gen if necessary
 controller-gen:
