@@ -37,6 +37,11 @@ KUSTOMIZE_DOWNLOAD_URL := https://github.com/kubernetes-sigs/kustomize/releases/
 KUSTOMIZE_LOCAL_ARCHIVE := /tmp/kustomize_v${KUSTOMIZE_VERSION}_${OS}_${ARCH}.tar.gz
 KUSTOMIZE := ${BIN}/kustomize-${KUSTOMIZE_VERSION}
 
+# Kind
+KIND_VERSION := 0.8.1
+KIND := ${BIN}/kind-${KIND_VERSION}
+
+
 all: manager
 
 # Run tests
@@ -81,8 +86,8 @@ docker-push:
 	docker push ${DOCKER_IMAGE}
 
 .PHONY: kind-load
-kind-load:
-	kind load docker-image ${DOCKER_IMAGE}
+kind-load: ${KIND}
+	${KIND} load docker-image ${DOCKER_IMAGE}
 
 
 # ==================================
@@ -101,3 +106,7 @@ ${KUSTOMIZE}: | ${BIN}
 	curl -sSL -o ${KUSTOMIZE_LOCAL_ARCHIVE} ${KUSTOMIZE_DOWNLOAD_URL}
 	tar -C ${BIN} -x -f ${KUSTOMIZE_LOCAL_ARCHIVE}
 	mv ${BIN}/kustomize ${KUSTOMIZE}
+
+${KIND}: ${BIN}
+	curl -sSL -o ${KIND} https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-${OS}-${ARCH}
+	chmod +x ${KIND}
