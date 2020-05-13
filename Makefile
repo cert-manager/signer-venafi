@@ -16,9 +16,6 @@ DOCKER_IMAGE ?= ${DOCKER_PREFIX}controller:${DOCKER_TAG}
 OS := $(shell go env GOOS)
 ARCH := $(shell go env GOARCH)
 
-# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true"
-
 # BIN is the directory where build tools such controller-gen and kustomize will
 # be installed.
 # BIN is inherited and exported so that it gets passed down to the make process
@@ -53,14 +50,6 @@ manager: generate fmt vet
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
 	go run ./main.go
-
-# Install CRDs into a cluster
-install: ${KUSTOMIZE}
-	${KUSTOMIZE} build config/crd | kubectl apply -f -
-
-# Uninstall CRDs from a cluster
-uninstall: ${KUSTOMIZE}
-	${KUSTOMIZE} build config/crd | kubectl delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: ${KUSTOMIZE}
