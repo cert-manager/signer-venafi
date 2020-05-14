@@ -2,20 +2,12 @@ package controllers
 
 import (
 	"context"
-	"testing"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	capi "k8s.io/api/certificates/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-func TestXYZ(t *testing.T) {
-	t.Log("Hello world")
-	if 1 == 1 {
-		t.Errorf("1 != 1")
-	}
-}
 
 const sampleCSR = `
 -----BEGIN CERTIFICATE REQUEST-----
