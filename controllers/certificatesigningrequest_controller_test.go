@@ -24,6 +24,7 @@ RQIgcrXz7aqdftkuxz39PWtcx0J2JFLOD/xsch/YKFEQOXUCIQCUDPUzI+ncN1uN
 
 var _ = Describe("CertificateSigningRequest Reconciler", func() {
 	It("reconciles", func() {
+		ctx := context.Background()
 		csr := &capi.CertificateSigningRequest{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "test1-",
@@ -38,21 +39,10 @@ var _ = Describe("CertificateSigningRequest Reconciler", func() {
 				},
 			},
 		}
-		ctx := context.Background()
-		// Create the Cluster object and expect the Reconcile and Deployment to be created
-		Expect(k8sClient.Create(ctx, csr)).ToNot(HaveOccurred())
+		Expect(k8sClient.Create(ctx, csr)).To(Succeed())
 		// key := client.ObjectKey{Namespace: csr.Namespace, Name: csr.Name}
 		defer func() {
-			err := k8sClient.Delete(ctx, csr)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient.Delete(ctx, csr)).To(Succeed())
 		}()
-
-		// Make sure the Cluster exists.
-		// Eventually(func() bool {
-		//	if err := testEnv.Get(ctx, key, instance); err != nil {
-		//		return false
-		//	}
-		//	return len(instance.Finalizers) > 0
-		// }, timeout).Should(BeTrue())
 	})
 })
