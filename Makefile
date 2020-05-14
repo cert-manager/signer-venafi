@@ -3,6 +3,7 @@ SHELL := bash
 .SHELLFLAGS := -eu -o pipefail -c
 .DELETE_ON_ERROR:
 .SUFFIXES:
+.DEFAULT_GOAL := help
 
 # The semver version number which will be used as the Docker image tag
 # Defaults to the output of git describe.
@@ -13,87 +14,112 @@ DOCKER_PREFIX ?= quay.io/cert-manager/signer-venafi-
 DOCKER_TAG ?= ${VERSION}
 DOCKER_IMAGE ?= ${DOCKER_PREFIX}controller:${DOCKER_TAG}
 
-# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true"
+OS := $(shell go env GOOS)
+ARCH := $(shell go env GOARCH)
 
-# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
-ifeq (,$(shell go env GOBIN))
-GOBIN=$(shell go env GOPATH)/bin
-else
-GOBIN=$(shell go env GOBIN)
-endif
+# BIN is the directory where build tools such controller-gen and kustomize will
+# be installed.
+# BIN is inherited and exported so that it gets passed down to the make process
+# that is launched by verify.sh
+# This ensures that test tools get installed in the original directory rather
+# than in the temporary copy.
+export BIN ?= ${CURDIR}/bin
 
-BIN := ${CURDIR}/bin
-export PATH := ${BIN}:${PATH}
+# Make sure BIN is on the PATH
+export PATH := $(BIN):$(PATH)
 
-all: manager
+# controller-tools
+CONTROLLER_GEN_VERSION := 0.3.0
+CONTROLLER_GEN := ${BIN}/controller-gen-0.3.0
 
-# Run tests
+# Kustomize
+KUSTOMIZE_VERSION := 3.5.5
+KUSTOMIZE_DOWNLOAD_URL := https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_${OS}_${ARCH}.tar.gz
+KUSTOMIZE_LOCAL_ARCHIVE := /tmp/kustomize_v${KUSTOMIZE_VERSION}_${OS}_${ARCH}.tar.gz
+KUSTOMIZE := ${BIN}/kustomize-${KUSTOMIZE_VERSION}
+
+# Kind
+KIND_VERSION := 0.8.1
+KIND := ${BIN}/kind-${KIND_VERSION}
+
+# from https://suva.sh/posts/well-documented-makefiles/
+.PHONY: help
+help: ## Display this help
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[0-9a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+.PHONY: test
+test: ## Run tests
 test: generate fmt vet manifests
 	go test ./... -coverprofile cover.out
 
-# Build manager binary
+.PHONY: manager
+manager: ## Build manager binary
 manager: generate fmt vet
 	go build -o bin/manager main.go
 
-# Run against the configured Kubernetes cluster in ~/.kube/config
+.PHONY: run
+run: ## Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
 	go run ./main.go
 
-# Install CRDs into a cluster
-install: manifests
-	kustomize build config/crd | kubectl apply -f -
+.PHONY: deploy
+deploy: ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+deploy: ${KUSTOMIZE}
+	cd config/manager && ${KUSTOMIZE} edit set image controller=${DOCKER_IMAGE}
+	${KUSTOMIZE} build config/default | kubectl apply -f -
 
-# Uninstall CRDs from a cluster
-uninstall: manifests
-	kustomize build config/crd | kubectl delete -f -
-
-# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests
-	cd config/manager && kustomize edit set image controller=${DOCKER_IMAGE}
-	kustomize build config/default | kubectl apply -f -
-
-# Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen
+.PHONY: manifests
+manifests: ## Generate manifests e.g. CRD, RBAC etc.
+manifests: ${CONTROLLER_GEN}
 	$(CONTROLLER_GEN) rbac:roleName=manager-role paths="./..." output:rbac:artifacts:config=config/rbac
 
-# Run go fmt against code
+.PHONY: fmt
+fmt: ## Run go fmt against code
 fmt:
 	go fmt ./...
 
-# Run go vet against code
+.PHONY: vet
+vet: ## Run go vet against code
 vet:
 	go vet ./...
 
-# Generate code
-generate: controller-gen
+.PHONY: generate
+generate: ## Generate code
+generate: ${CONTROLLER_GEN}
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-# Build the docker image
+.PHONY: docker-build
+docker-build: ## Build the docker image
 docker-build:
 	docker build . -t ${DOCKER_IMAGE}
 
-# Push the docker image
+.PHONY: docker-push
+docker-push: ## Push the docker image
 docker-push:
 	docker push ${DOCKER_IMAGE}
 
 .PHONY: kind-load
-kind-load:
-	kind load docker-image ${DOCKER_IMAGE}
+kind-load: ## Load the docker image into the Kind cluster
+kind-load: ${KIND}
+	${KIND} load docker-image ${DOCKER_IMAGE}
 
-# find or download controller-gen
-# download controller-gen if necessary
-controller-gen:
-ifeq (, $(shell which controller-gen))
-	@{ \
-	set -e ;\
-	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$CONTROLLER_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.2.5 ;\
-	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
-	}
-CONTROLLER_GEN=$(GOBIN)/controller-gen
-else
-CONTROLLER_GEN=$(shell which controller-gen)
-endif
+# ==================================
+# Download: tools in ${BIN}
+# ==================================
+${BIN}:
+	mkdir -p ${BIN}
+
+${CONTROLLER_GEN}: | ${BIN}
+# Prevents go get from modifying our go.mod file.
+# See https://github.com/kubernetes-sigs/kubebuilder/issues/909
+	cd /tmp; GOBIN=${BIN} GO111MODULE=on go get sigs.k8s.io/controller-tools/cmd/controller-gen@v${CONTROLLER_GEN_VERSION}
+	mv ${BIN}/controller-gen ${CONTROLLER_GEN}
+
+${KUSTOMIZE}: | ${BIN}
+	curl -sSL -o ${KUSTOMIZE_LOCAL_ARCHIVE} ${KUSTOMIZE_DOWNLOAD_URL}
+	tar -C ${BIN} -x -f ${KUSTOMIZE_LOCAL_ARCHIVE}
+	mv ${BIN}/kustomize ${KUSTOMIZE}
+
+${KIND}: ${BIN}
+	curl -sSL -o ${KIND} https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-${OS}-${ARCH}
+	chmod +x ${KIND}

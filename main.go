@@ -43,22 +43,30 @@ func init() {
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
+	var (
+		metricsAddr          string
+		enableLeaderElection bool
+		leaderElectionID     string
+		debugLogging         bool
+	)
+
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&leaderElectionID, "leader-election-id", "signer-venafi-leader-election",
+		"The name of the configmap used to coordinate leader election between controller-managers.")
+	flag.BoolVar(&debugLogging, "debug-logging", true, "Enable debug logging.")
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+	ctrl.SetLogger(zap.New(zap.UseDevMode(debugLogging)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
 		Port:               9443,
 		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   "45c81a89.cert-manager.io",
+		LeaderElectionID:   leaderElectionID,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -67,10 +75,10 @@ func main() {
 
 	if err = (&controllers.CertificateSigningRequestReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CertificateSigningRequest"),
+		Log:    ctrl.Log.WithName("controllers").WithName("CertificateSigningRequestReconciler"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CertificateSigningRequest")
+		setupLog.Error(err, "unable to create controller", "controller", "CertificateSigningRequestReconciler")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
