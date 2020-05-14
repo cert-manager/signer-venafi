@@ -42,6 +42,18 @@ KUSTOMIZE := ${BIN}/kustomize-${KUSTOMIZE_VERSION}
 KIND_VERSION := 0.8.1
 KIND := ${BIN}/kind-${KIND_VERSION}
 
+# Kubebuilder
+KUBEBUILDER_VERSION := 2.3.1
+KUBEBUILDER_DOWNLOAD_URL := https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${KUBEBUILDER_VERSION}/kubebuilder_${KUBEBUILDER_VERSION}_${OS}_${ARCH}.tar.gz
+KUBEBUILDER_LOCAL_ARCHIVE := /tmp/kubebuilder_v${KUBEBUILDER_VERSION}_${OS}_${ARCH}.tar.gz
+KUBEBUILDER_BIN := ${BIN}/kubebuilder_${KUBEBUILDER_VERSION}_${OS}_${ARCH}/bin
+KUBEBUILDER := ${KUBEBUILDER_BIN}/kubebuilder
+export KUBEBUILDER_ASSETS := ${KUBEBUILDER_BIN}
+export TEST_ASSET_KUBE_APISERVER := ${KUBEBUILDER_BIN}/kube-apiserver
+export TEST_ASSET_ETCD := ${KUBEBUILDER_BIN}/etcd
+export TEST_ASSET_KUBECTL := ${KUBEBUILDER_BIN}/kubectl
+KUBEBUILDER_TEST_ASSETS := ${TEST_ASSET_KUBE_APISERVER} ${TEST_ASSET_ETCD} ${TEST_ASSET_KUBECTL}
+
 # from https://suva.sh/posts/well-documented-makefiles/
 .PHONY: help
 help: ## Display this help
@@ -49,7 +61,7 @@ help: ## Display this help
 
 .PHONY: test
 test: ## Run tests
-test: generate fmt vet manifests
+test: ${KUBEBUILDER_TEST_ASSETS}
 	go test ./... -coverprofile cover.out
 
 .PHONY: manager
@@ -119,6 +131,14 @@ ${KUSTOMIZE}: | ${BIN}
 	curl -sSL -o ${KUSTOMIZE_LOCAL_ARCHIVE} ${KUSTOMIZE_DOWNLOAD_URL}
 	tar -C ${BIN} -x -f ${KUSTOMIZE_LOCAL_ARCHIVE}
 	mv ${BIN}/kustomize ${KUSTOMIZE}
+
+${KUBEBUILDER_LOCAL_ARCHIVE}:
+	curl -sSL -o ${KUBEBUILDER_LOCAL_ARCHIVE} ${KUBEBUILDER_DOWNLOAD_URL}
+
+${KUBEBUILDER}: | ${BIN} ${KUBEBUILDER_LOCAL_ARCHIVE}
+	tar -C ${BIN} -x -f ${KUBEBUILDER_LOCAL_ARCHIVE}
+
+${KUBEBUILDER_TEST_ASSETS}: ${KUBEBUILDER}
 
 ${KIND}: ${BIN}
 	curl -sSL -o ${KIND} https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-${OS}-${ARCH}
