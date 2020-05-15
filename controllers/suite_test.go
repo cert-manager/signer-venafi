@@ -92,7 +92,7 @@ var _ = BeforeSuite(func(done Done) {
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("CertificateSigningRequestReconciler"),
 		Scheme: mgr.GetScheme(),
-		Signer: &fake.Signer{},
+		Signer: &fake.Signer{Certificate: []byte(sampleCertificate)},
 	}).SetupWithManager(mgr)
 
 	doneMgr = make(chan struct{})

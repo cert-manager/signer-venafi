@@ -6,10 +6,11 @@ import (
 )
 
 type Signer struct {
+	Certificate []byte
 }
 
 var _ signer.Signer = &Signer{}
 
 func (o *Signer) Sign(csr capi.CertificateSigningRequest) ([]byte, error) {
-	return []byte("XXX"), nil
+	return o.Certificate, nil
 }
