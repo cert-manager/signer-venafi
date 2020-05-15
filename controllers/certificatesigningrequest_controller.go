@@ -17,11 +17,17 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
+	"fmt"
+	"reflect"
+
 	"github.com/go-logr/logr"
 	capi "k8s.io/api/certificates/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/cert-manager/signer-venafi/internal/signer"
 )
 
 // CertificateSigningRequestReconciler reconciles a CertificateSigningRequest object
@@ -29,6 +35,7 @@ type CertificateSigningRequestReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
+	Signer signer.Signer
 }
 
 // +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=get;list;watch
@@ -36,8 +43,31 @@ type CertificateSigningRequestReconciler struct {
 
 func (r *CertificateSigningRequestReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithName("Reconcile").WithValues("certificatesigningrequest", req.NamespacedName)
-	log.V(1).Info("Reconciling")
+	ctx := context.Background()
 
+	var csr capi.CertificateSigningRequest
+	if err := r.Client.Get(ctx, req.NamespacedName, &csr); client.IgnoreNotFound(err) != nil {
+		return ctrl.Result{}, fmt.Errorf("error getting CSR: %v", err)
+	}
+
+	log.V(1).Info("Signing")
+
+	certificate, err := r.Signer.Sign(csr)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("error signing: %v", err)
+	}
+
+	original := csr.DeepCopy()
+	csr.Status.Certificate = certificate
+
+	if reflect.DeepEqual(original, csr) {
+		return ctrl.Result{}, nil
+	}
+
+	patch := client.MergeFrom(original)
+	if err := r.Client.Status().Patch(ctx, &csr, patch); err != nil {
+		return ctrl.Result{}, fmt.Errorf("error patching CSR: %v", err)
+	}
 	return ctrl.Result{}, nil
 }
 

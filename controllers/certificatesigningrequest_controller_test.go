@@ -25,12 +25,12 @@ RQIgcrXz7aqdftkuxz39PWtcx0J2JFLOD/xsch/YKFEQOXUCIQCUDPUzI+ncN1uN
 `
 
 var _ = Describe("CertificateSigningRequest Reconciler", func() {
-	It("Reconciles CSR with matching signerName", func() {
+	It("Signs a CSR with matching signerName", func() {
 		ctx := context.Background()
 		csr := &capi.CertificateSigningRequest{
 			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "test1-",
-				Namespace:    "default",
+				Name:      "test1",
+				Namespace: "default",
 			},
 			Spec: capi.CertificateSigningRequestSpec{
 				SignerName: pointer.StringPtr(sampleSignerName),
@@ -51,7 +51,8 @@ var _ = Describe("CertificateSigningRequest Reconciler", func() {
 
 		var actualCSR capi.CertificateSigningRequest
 		Eventually(func() ([]byte, error) {
-			return actualCSR.Status.Certificate, k8sClient.Get(ctx, key, &actualCSR)
-		}, 1).ShouldNot(BeNil())
+			err := k8sClient.Get(ctx, key, &actualCSR)
+			return actualCSR.Status.Certificate, err
+		}, 5).ShouldNot(BeNil())
 	})
 })
