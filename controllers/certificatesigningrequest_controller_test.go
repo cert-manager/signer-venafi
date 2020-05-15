@@ -7,6 +7,8 @@ import (
 	. "github.com/onsi/gomega"
 	capi "k8s.io/api/certificates/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const sampleCSR = `
@@ -23,7 +25,7 @@ RQIgcrXz7aqdftkuxz39PWtcx0J2JFLOD/xsch/YKFEQOXUCIQCUDPUzI+ncN1uN
 `
 
 var _ = Describe("CertificateSigningRequest Reconciler", func() {
-	It("reconciles", func() {
+	It("Reconciles CSR with matching signerName", func() {
 		ctx := context.Background()
 		csr := &capi.CertificateSigningRequest{
 			ObjectMeta: metav1.ObjectMeta{
@@ -31,7 +33,8 @@ var _ = Describe("CertificateSigningRequest Reconciler", func() {
 				Namespace:    "default",
 			},
 			Spec: capi.CertificateSigningRequestSpec{
-				Request: []byte(sampleCSR),
+				SignerName: pointer.StringPtr(sampleSignerName),
+				Request:    []byte(sampleCSR),
 				Usages: []capi.KeyUsage{
 					"digital signature",
 					"key encipherment",
@@ -40,9 +43,15 @@ var _ = Describe("CertificateSigningRequest Reconciler", func() {
 			},
 		}
 		Expect(k8sClient.Create(ctx, csr)).To(Succeed())
-		// key := client.ObjectKey{Namespace: csr.Namespace, Name: csr.Name}
 		defer func() {
 			Expect(k8sClient.Delete(ctx, csr)).To(Succeed())
 		}()
+
+		key := client.ObjectKey{Namespace: csr.Namespace, Name: csr.Name}
+
+		var actualCSR capi.CertificateSigningRequest
+		Eventually(func() ([]byte, error) {
+			return actualCSR.Status.Certificate, k8sClient.Get(ctx, key, &actualCSR)
+		}, 1).ShouldNot(BeNil())
 	})
 })
