@@ -53,6 +53,7 @@ export TEST_ASSET_KUBE_APISERVER := ${KUBEBUILDER_BIN}/kube-apiserver
 export TEST_ASSET_ETCD := ${KUBEBUILDER_BIN}/etcd
 export TEST_ASSET_KUBECTL := ${KUBEBUILDER_BIN}/kubectl
 KUBEBUILDER_TEST_ASSETS := ${TEST_ASSET_KUBE_APISERVER} ${TEST_ASSET_ETCD} ${TEST_ASSET_KUBECTL}
+export KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT := "true"
 
 # from https://suva.sh/posts/well-documented-makefiles/
 .PHONY: help
@@ -62,7 +63,7 @@ help: ## Display this help
 .PHONY: test
 test: ## Run tests
 test: ${KUBEBUILDER_TEST_ASSETS}
-	go test ./... -coverprofile cover.out
+	go test -v ./... -coverprofile cover.out
 
 .PHONY: manager
 manager: ## Build manager binary

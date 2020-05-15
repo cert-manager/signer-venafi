@@ -23,8 +23,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	capi "k8s.io/api/certificates/v1beta1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
@@ -39,6 +42,7 @@ import (
 var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
+var doneMgr chan struct{}
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -70,11 +74,34 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(k8sClient).ToNot(BeNil())
 
+	scheme := runtime.NewScheme()
+
+	Expect(clientgoscheme.AddToScheme(scheme)).To(Succeed())
+	Expect(capi.AddToScheme(scheme)).To(Succeed())
+
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme:             scheme,
+		MetricsBindAddress: "0",
+		LeaderElection:     false,
+	})
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&CertificateSigningRequestReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("CertificateSigningRequestReconciler"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr)
+
+	doneMgr = make(chan struct{})
+	go func() {
+		Expect(mgr.Start(doneMgr)).To(Succeed())
+	}()
+
 	close(done)
 }, 60)
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
-	err := testEnv.Stop()
-	Expect(err).ToNot(HaveOccurred())
+	close(doneMgr)
+	Expect(testEnv.Stop()).To(Succeed())
 })
