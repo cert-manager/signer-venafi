@@ -23,7 +23,7 @@ var _ signer.Signer = &Signer{}
 func (o *Signer) Sign(csr capi.CertificateSigningRequest) ([]byte, error) {
 	log := o.Log.WithName("Sign")
 
-	log.V(1).Info("Generating template from CSR", "csr-spec-request")
+	log.V(1).Info("Generating template from CSR")
 	tmpl, err := pki.GenerateTemplateFromCSRPEM(csr.Spec.Request, time.Hour*24, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate template from CSR PEM: %v", err)
