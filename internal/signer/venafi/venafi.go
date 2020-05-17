@@ -35,7 +35,7 @@ func (o *Signer) Sign(csr capi.CertificateSigningRequest) ([]byte, error) {
 	vreq.CSR = csr.Spec.Request
 
 	log.V(1).Info("Requesting certificate")
-	pickupID, err := o.Client.RequestCertificate(vreq, "foo/bar")
+	pickupID, err := o.Client.RequestCertificate(vreq, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to request certificate: %v", err)
 	}

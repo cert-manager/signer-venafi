@@ -1,11 +1,12 @@
-package venafi
+package venafi_test
 
 import (
 	"encoding/pem"
+	"os"
 	"testing"
 
 	"github.com/Venafi/vcert"
-	"github.com/Venafi/vcert/pkg/endpoint"
+	"github.com/cert-manager/signer-venafi/internal/signer/venafi"
 	"github.com/go-logr/zapr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,12 +35,21 @@ OKbMbQNLoXS2f6qrS1Iqv4xxvHdDncH4zdhJiLdRqUJrSjPgMQ==
 `
 
 func TestSigner(t *testing.T) {
-	vcertClient, err := vcert.NewClient(&vcert.Config{
-		ConnectorType: endpoint.ConnectorTypeFake,
-	})
+	vcertConfigFile := os.Getenv("VCERT_CONFIG_FILE")
+	if vcertConfigFile == "" {
+		vcertConfigFile = "testdata/vcert.ini"
+	}
+	vconf := &vcert.Config{
+		ConfigFile: vcertConfigFile,
+	}
+
+	err := vconf.LoadFromFile()
 	require.NoError(t, err)
 
-	s := &Signer{Client: vcertClient, Log: zapr.NewLogger(zaptest.NewLogger(t)).WithName("Signer")}
+	vcertClient, err := vcert.NewClient(vconf)
+	require.NoError(t, err)
+
+	s := &venafi.Signer{Client: vcertClient, Log: zapr.NewLogger(zaptest.NewLogger(t)).WithName("Signer")}
 
 	csr := capi.CertificateSigningRequest{
 		Spec: capi.CertificateSigningRequestSpec{
