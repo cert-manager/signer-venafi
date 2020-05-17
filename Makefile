@@ -64,6 +64,12 @@ help: ## Display this help
 test: ## Run tests
 test: ${KUBEBUILDER_TEST_ASSETS}
 	go test -v ./... -coverprofile cover.out
+	go tool cover -func=cover.out
+
+.PHONY: coverage_html
+coverage_html: ## Run tests and open coverage report in web browser
+coverage_html: test
+	go tool cover -html=cover.out
 
 .PHONY: manager
 manager: ## Build manager binary
