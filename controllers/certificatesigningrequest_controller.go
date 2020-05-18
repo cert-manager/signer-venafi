@@ -27,15 +27,17 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	capihelper "github.com/cert-manager/signer-venafi/internal/api"
 	"github.com/cert-manager/signer-venafi/internal/signer"
 )
 
 // CertificateSigningRequestReconciler reconciles a CertificateSigningRequest object
 type CertificateSigningRequestReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
-	Signer signer.Signer
+	Log        logr.Logger
+	Scheme     *runtime.Scheme
+	Signer     signer.Signer
+	SignerName string
 }
 
 // +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=get;list;watch
@@ -50,24 +52,35 @@ func (r *CertificateSigningRequestReconciler) Reconcile(req ctrl.Request) (ctrl.
 		return ctrl.Result{}, fmt.Errorf("error getting CSR: %v", err)
 	}
 
-	log.V(1).Info("Signing")
+	switch {
+	case csr.Spec.SignerName == nil:
+		log.V(1).Info("CSR does not have a signer name. Ignoring.")
+	case *csr.Spec.SignerName != r.SignerName:
+		log.V(1).Info("CSR signer name does not match Reconciler signer name. Ignoring.", "signer-name", csr.Spec.SignerName)
+	case !capihelper.IsCertificateRequestApproved(&csr):
+		log.V(1).Info("CSR is not approved, Ignoring.")
+	default:
+		log.V(1).Info("Signing")
 
-	certificate, err := r.Signer.Sign(csr)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("error signing: %v", err)
+		certificate, err := r.Signer.Sign(csr)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("error signing: %v", err)
+		}
+
+		original := csr.DeepCopy()
+		csr.Status.Certificate = certificate
+
+		if reflect.DeepEqual(original, csr) {
+			return ctrl.Result{}, nil
+		}
+
+		patch := client.MergeFrom(original)
+		if err := r.Client.Status().Patch(ctx, &csr, patch); err != nil {
+			return ctrl.Result{}, fmt.Errorf("error patching CSR: %v", err)
+		}
+
 	}
 
-	original := csr.DeepCopy()
-	csr.Status.Certificate = certificate
-
-	if reflect.DeepEqual(original, csr) {
-		return ctrl.Result{}, nil
-	}
-
-	patch := client.MergeFrom(original)
-	if err := r.Client.Status().Patch(ctx, &csr, patch); err != nil {
-		return ctrl.Result{}, fmt.Errorf("error patching CSR: %v", err)
-	}
 	return ctrl.Result{}, nil
 }
 

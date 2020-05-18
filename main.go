@@ -48,6 +48,7 @@ func main() {
 		enableLeaderElection bool
 		leaderElectionID     string
 		debugLogging         bool
+		signerName           string
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
@@ -57,6 +58,7 @@ func main() {
 	flag.StringVar(&leaderElectionID, "leader-election-id", "signer-venafi-leader-election",
 		"The name of the configmap used to coordinate leader election between controller-managers.")
 	flag.BoolVar(&debugLogging, "debug-logging", true, "Enable debug logging.")
+	flag.StringVar(&signerName, "signer-name", "example.com/foo", "Only sign CSR with this .spec.signerName.")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(debugLogging)))
@@ -74,9 +76,10 @@ func main() {
 	}
 
 	if err = (&controllers.CertificateSigningRequestReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CertificateSigningRequestReconciler"),
-		Scheme: mgr.GetScheme(),
+		Client:     mgr.GetClient(),
+		Log:        ctrl.Log.WithName("controllers").WithName("CertificateSigningRequestReconciler"),
+		Scheme:     mgr.GetScheme(),
+		SignerName: signerName,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CertificateSigningRequestReconciler")
 		os.Exit(1)

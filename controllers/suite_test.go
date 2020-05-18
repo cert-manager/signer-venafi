@@ -41,7 +41,7 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-const sampleSignerName = "example.com/sample-signer-name"
+var sampleSignerName = "example.com/sample-signer-name"
 
 var cfg *rest.Config
 var k8sClient client.Client
@@ -89,10 +89,11 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&CertificateSigningRequestReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CertificateSigningRequestReconciler"),
-		Scheme: mgr.GetScheme(),
-		Signer: &fake.Signer{Certificate: []byte(sampleCertificate)},
+		Client:     mgr.GetClient(),
+		Log:        ctrl.Log.WithName("controllers").WithName("CertificateSigningRequestReconciler"),
+		Scheme:     mgr.GetScheme(),
+		Signer:     &fake.Signer{Certificate: []byte(sampleCertificate)},
+		SignerName: sampleSignerName,
 	}).SetupWithManager(mgr)
 
 	doneMgr = make(chan struct{})

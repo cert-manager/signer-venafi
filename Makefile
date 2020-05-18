@@ -17,6 +17,8 @@ DOCKER_IMAGE ?= ${DOCKER_PREFIX}controller:${DOCKER_TAG}
 OS := $(shell go env GOOS)
 ARCH := $(shell go env GOARCH)
 
+ARGS ?=
+
 # BIN is the directory where build tools such controller-gen and kustomize will
 # be installed.
 # BIN is inherited and exported so that it gets passed down to the make process
@@ -79,7 +81,7 @@ manager: generate fmt vet
 .PHONY: run
 run: ## Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
-	go run ./main.go
+	go run ./main.go ${ARGS}
 
 .PHONY: deploy
 deploy: ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config

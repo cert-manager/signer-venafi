@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/gomega"
 	capi "k8s.io/api/certificates/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -67,7 +66,9 @@ var _ = Describe("CertificateSigningRequest Reconciler", func() {
 				Namespace: "default",
 			},
 			Spec: capi.CertificateSigningRequestSpec{
-				SignerName: pointer.StringPtr(sampleSignerName),
+				// TODO: KubeBuilder 2.3.1 uses k8s 1.16 which does not have signerName
+				// test fails because SignerName becomes nil after conversion
+				SignerName: &sampleSignerName,
 				Request:    []byte(sampleCSR),
 				Usages: []capi.KeyUsage{
 					"digital signature",
