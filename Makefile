@@ -119,6 +119,11 @@ docker-push: ## Push the docker image
 docker-push:
 	docker push ${DOCKER_IMAGE}
 
+.PHONY: kind-create-cluster
+kind-create-cluster: ## Create a Kind cluster for E2E testing
+kind-create-cluster: ${KIND}
+	${KIND} create cluster
+
 .PHONY: kind-load
 kind-load: ## Load the docker image into the Kind cluster
 kind-load: ${KIND}
