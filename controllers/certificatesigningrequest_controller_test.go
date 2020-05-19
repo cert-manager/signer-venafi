@@ -59,6 +59,7 @@ BSvRUW8=
 
 var _ = Describe("CertificateSigningRequest Reconciler", func() {
 	It("Signs a CSR with matching signerName", func() {
+		By("Creating a CSR")
 		ctx := context.Background()
 		csr := &capi.CertificateSigningRequest{
 			ObjectMeta: metav1.ObjectMeta{
@@ -85,6 +86,21 @@ var _ = Describe("CertificateSigningRequest Reconciler", func() {
 		key := client.ObjectKey{Namespace: csr.Namespace, Name: csr.Name}
 
 		var actualCSR capi.CertificateSigningRequest
+
+		Expect(k8sClient.Get(ctx, key, &actualCSR)).To(Succeed())
+
+		By("Approving the CSR")
+		actualCSR.Status.Conditions = append(
+			actualCSR.Status.Conditions,
+			capi.CertificateSigningRequestCondition{
+				Type:           capi.CertificateApproved,
+				Reason:         "TestApprove",
+				Message:        "Approved for use in test",
+				LastUpdateTime: metav1.Now(),
+			},
+		)
+		Expect(k8sClient.Status().Update(ctx, &actualCSR)).To(Succeed())
+
 		Eventually(func() ([]byte, error) {
 			err := k8sClient.Get(ctx, key, &actualCSR)
 			return actualCSR.Status.Certificate, err
