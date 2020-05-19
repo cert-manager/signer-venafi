@@ -18,8 +18,10 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/go-logr/logr"
 	capi "k8s.io/api/certificates/v1beta1"
@@ -59,15 +61,44 @@ func (r *CertificateSigningRequestReconciler) Reconcile(req ctrl.Request) (ctrl.
 		log.V(1).Info("CSR signer name does not match Reconciler signer name. Ignoring.", "signer-name", csr.Spec.SignerName)
 	case !capihelper.IsCertificateRequestApproved(&csr):
 		log.V(1).Info("CSR is not approved, Ignoring.")
-	default:
+	case csr.Status.Certificate != nil:
+		log.V(1).Info("CSR has already been signed. Ignoring.")
+	case string(csr.Status.Certificate) != "":
+		log.V(1).Info("CSR has already been signed. Ignoring.")
+	case csr.Annotations["pickup-id"] == "":
 		log.V(1).Info("Signing")
 
-		certificate, err := r.Signer.Sign(csr)
+		pickupID, err := r.Signer.Sign(csr)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("error signing: %v", err)
 		}
 
 		original := csr.DeepCopy()
+		csr.Annotations["pickup-id"] = pickupID
+
+		if reflect.DeepEqual(original, csr) {
+			return ctrl.Result{}, nil
+		}
+
+		patch := client.MergeFrom(original)
+		if err := r.Client.Status().Patch(ctx, &csr, patch); err != nil {
+			return ctrl.Result{}, fmt.Errorf("error patching CSR: %v", err)
+		}
+	default:
+		log.V(1).Info("Picking up")
+
+		pickupID := csr.Annotations["pickup-id"]
+
+		certificate, err := r.Signer.Pickup(pickupID)
+		if err != nil {
+			if errors.Is(err, signer.ErrTemporary) {
+				return ctrl.Result{RequeueAfter: time.Second}, nil
+			}
+			return ctrl.Result{}, fmt.Errorf("error signing: %v", err)
+		}
+
+		original := csr.DeepCopy()
+		delete(csr.Annotations, "pickup-id")
 		csr.Status.Certificate = certificate
 
 		if reflect.DeepEqual(original, csr) {

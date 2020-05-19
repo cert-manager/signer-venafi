@@ -2,6 +2,7 @@ package venafi
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Venafi/vcert/pkg/certificate"
@@ -20,13 +21,13 @@ type Signer struct {
 
 var _ signer.Signer = &Signer{}
 
-func (o *Signer) Sign(csr capi.CertificateSigningRequest) ([]byte, error) {
+func (o *Signer) Sign(csr capi.CertificateSigningRequest) (string, error) {
 	log := o.Log.WithName("Sign")
 
 	log.V(1).Info("Generating template from CSR")
 	tmpl, err := pki.GenerateTemplateFromCSRPEM(csr.Spec.Request, time.Hour*24, false)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate template from CSR PEM: %v", err)
+		return "", fmt.Errorf("failed to generate template from CSR PEM: %v", err)
 	}
 
 	log.V(1).Info("Generating vreq")
@@ -37,14 +38,21 @@ func (o *Signer) Sign(csr capi.CertificateSigningRequest) ([]byte, error) {
 	log.V(1).Info("Requesting certificate")
 	pickupID, err := o.Client.RequestCertificate(vreq, "")
 	if err != nil {
-		return nil, fmt.Errorf("failed to request certificate: %v", err)
+		return "", fmt.Errorf("failed to request certificate: %v", err)
 	}
+	return pickupID, nil
+}
+
+func (o *Signer) Pickup(pickupID string) ([]byte, error) {
+	log := o.Log.WithName("Pickup")
 
 	log.V(1).Info("Retrieving certificate", "pickup-id", pickupID)
 	certs, err := o.Client.RetrieveCertificate(&certificate.Request{PickupID: pickupID})
 	if err != nil {
+		if strings.Contains(err.Error(), "Issuance is pending.") {
+			return nil, fmt.Errorf("%w: certificate not ready", signer.ErrTemporary)
+		}
 		return nil, fmt.Errorf("failed to retrieve certificate: %v", err)
 	}
-
 	return []byte(certs.Certificate), nil
 }
