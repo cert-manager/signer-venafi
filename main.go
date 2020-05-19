@@ -27,7 +27,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	"github.com/Venafi/vcert"
 	"github.com/cert-manager/signer-venafi/controllers"
+	"github.com/cert-manager/signer-venafi/internal/signer/venafi"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -49,6 +51,7 @@ func main() {
 		leaderElectionID     string
 		debugLogging         bool
 		signerName           string
+		vcertConfigPath      string
 	)
 
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
@@ -59,6 +62,7 @@ func main() {
 		"The name of the configmap used to coordinate leader election between controller-managers.")
 	flag.BoolVar(&debugLogging, "debug-logging", true, "Enable debug logging.")
 	flag.StringVar(&signerName, "signer-name", "example.com/foo", "Only sign CSR with this .spec.signerName.")
+	flag.StringVar(&vcertConfigPath, "vcert-config", "vcert.ini", "Vcert INI file path.")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(debugLogging)))
@@ -75,10 +79,31 @@ func main() {
 		os.Exit(1)
 	}
 
+	vcertConfig := &vcert.Config{
+		ConfigFile: vcertConfigPath,
+	}
+	err = vcertConfig.LoadFromFile()
+	if err != nil {
+		setupLog.Error(err, "unable load vcert config file", "vcert-config-path", vcertConfigPath)
+		os.Exit(1)
+	}
+
+	vcertClient, err := vcert.NewClient()
+	if err != nil {
+		setupLog.Error(err, "unable initialize vcert client", "vcert-config-path", vcertConfigPath)
+		os.Exit(1)
+	}
+
+	signer := &venafi.Signer{
+		Client: vcertClient,
+		Log:    ctrl.Log.WithName("signer").WithName("venafi").WithName("Signer"),
+	}
+
 	if err = (&controllers.CertificateSigningRequestReconciler{
 		Client:     mgr.GetClient(),
 		Log:        ctrl.Log.WithName("controllers").WithName("CertificateSigningRequestReconciler"),
 		Scheme:     mgr.GetScheme(),
+		Signer:     signer,
 		SignerName: signerName,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CertificateSigningRequestReconciler")
