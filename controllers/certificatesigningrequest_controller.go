@@ -50,9 +50,15 @@ func (r *CertificateSigningRequestReconciler) Reconcile(req ctrl.Request) (ctrl.
 	ctx := context.Background()
 
 	var csr capi.CertificateSigningRequest
-	if err := r.Client.Get(ctx, req.NamespacedName, &csr); client.IgnoreNotFound(err) != nil {
+	if err := r.Client.Get(ctx, req.NamespacedName, &csr); err != nil {
+		if client.IgnoreNotFound(err) == nil {
+			log.Info("csr not found")
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{}, fmt.Errorf("error getting CSR: %v", err)
 	}
+
+	log.Info("found csr", "csr", csr)
 
 	switch {
 	case csr.Spec.SignerName == nil:
