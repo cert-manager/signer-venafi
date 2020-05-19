@@ -88,7 +88,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	vcertClient, err := vcert.NewClient()
+	vcertClient, err := vcert.NewClient(vcertConfig)
 	if err != nil {
 		setupLog.Error(err, "unable initialize vcert client", "vcert-config-path", vcertConfigPath)
 		os.Exit(1)
