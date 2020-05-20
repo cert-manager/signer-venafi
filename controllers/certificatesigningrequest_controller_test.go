@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 	"encoding/pem"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -90,8 +89,6 @@ var _ = Describe("CertificateSigningRequest Reconciler", func() {
 		var actualCSR capi.CertificateSigningRequest
 		Expect(k8sClient.Get(ctx, key, &actualCSR)).To(Succeed())
 
-		time.Sleep(5)
-
 		By("Approving the sample CSR")
 		actualCSR.Status.Conditions = append(
 			actualCSR.Status.Conditions,
@@ -112,7 +109,7 @@ var _ = Describe("CertificateSigningRequest Reconciler", func() {
 
 		By("Checking that the CSR certificate content is a PEM encoded CERTIFICATE")
 		block, rest := pem.Decode(actualCSR.Status.Certificate)
-		Expect(block.Type).To(Equal("CERTIFICATEX"))
+		Expect(block.Type).To(Equal("CERTIFICATE"))
 		Expect(rest).To(BeEmpty())
 	})
 })
