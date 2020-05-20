@@ -9,8 +9,6 @@ import (
 	capi "k8s.io/api/certificates/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	capihelper "github.com/cert-manager/signer-venafi/internal/api"
 )
 
 const sampleCSR = `
@@ -95,14 +93,16 @@ var _ = Describe("CertificateSigningRequest Reconciler", func() {
 		actualCSR.Status.Conditions = append(
 			actualCSR.Status.Conditions,
 			capi.CertificateSigningRequestCondition{
-				Type:           capi.CertificateApproved,
-				Reason:         "TestApprove",
-				Message:        "Approved for use in test",
-				LastUpdateTime: metav1.Now(),
+				Type:    capi.CertificateApproved,
+				Reason:  "TestApprove",
+				Message: "Approved for use in test",
 			},
 		)
-		Expect(capihelper.IsCertificateRequestApproved(&actualCSR)).To(BeTrue())
-		Expect(k8sClient.Status().Update(ctx, &actualCSR)).To(Succeed())
+		_, err := clientset.CertificatesV1beta1().CertificateSigningRequests().UpdateApproval(ctx, &actualCSR, metav1.UpdateOptions{})
+		Expect(err).To(Succeed())
+
+		// Expect(k8sClient.Get(ctx, key, &actualCSR)).To(Succeed())
+		// Expect(capihelper.IsCertificateRequestApproved(&actualCSR)).To(BeTrue())
 
 		By("Waiting for the CSR to be signed")
 		Eventually(func() ([]byte, error) {

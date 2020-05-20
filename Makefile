@@ -19,6 +19,8 @@ ARCH := $(shell go env GOARCH)
 
 ARGS ?=
 
+
+
 # BIN is the directory where build tools such controller-gen and kustomize will
 # be installed.
 # BIN is inherited and exported so that it gets passed down to the make process
@@ -44,6 +46,9 @@ KUSTOMIZE := ${BIN}/kustomize-${KUSTOMIZE_VERSION}
 KIND_VERSION := 0.8.1
 KIND := ${BIN}/kind-${KIND_VERSION}
 
+# Kube API Server
+KUBE_APISERVER_VERSION := 1.18.2
+
 # Kubebuilder
 KUBEBUILDER_VERSION := 2.3.1
 KUBEBUILDER_DOWNLOAD_URL := https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${KUBEBUILDER_VERSION}/kubebuilder_${KUBEBUILDER_VERSION}_${OS}_${ARCH}.tar.gz
@@ -51,7 +56,7 @@ KUBEBUILDER_LOCAL_ARCHIVE := /tmp/kubebuilder_v${KUBEBUILDER_VERSION}_${OS}_${AR
 KUBEBUILDER_BIN := ${BIN}/kubebuilder_${KUBEBUILDER_VERSION}_${OS}_${ARCH}/bin
 KUBEBUILDER := ${KUBEBUILDER_BIN}/kubebuilder
 export KUBEBUILDER_ASSETS := ${KUBEBUILDER_BIN}
-export TEST_ASSET_KUBE_APISERVER := ${KUBEBUILDER_BIN}/kube-apiserver
+export TEST_ASSET_KUBE_APISERVER := ${KUBEBUILDER_BIN}/kube-apiserver-${KUBE_APISERVER_VERSION}
 export TEST_ASSET_ETCD := ${KUBEBUILDER_BIN}/etcd
 export TEST_ASSET_KUBECTL := ${KUBEBUILDER_BIN}/kubectl
 KUBEBUILDER_TEST_ASSETS := ${TEST_ASSET_KUBE_APISERVER} ${TEST_ASSET_ETCD} ${TEST_ASSET_KUBECTL}
@@ -151,6 +156,11 @@ ${KUBEBUILDER_LOCAL_ARCHIVE}:
 
 ${KUBEBUILDER}: | ${BIN} ${KUBEBUILDER_LOCAL_ARCHIVE}
 	tar -C ${BIN} -x -f ${KUBEBUILDER_LOCAL_ARCHIVE}
+
+${TEST_ASSET_KUBE_APISERVER}: | ${BIN}
+	curl -sSL -o ${KUBEBUILDER_BIN}/kube-apiserver-${KUBE_APISERVER_VERSION} \
+			https://storage.googleapis.com/kubernetes-release/release/v${KUBE_APISERVER_VERSION}/bin/${OS}/${ARCH}/kube-apiserver
+	chmod +x ${TEST_ASSET_KUBE_APISERVER}
 
 ${KUBEBUILDER_TEST_ASSETS}: ${KUBEBUILDER}
 

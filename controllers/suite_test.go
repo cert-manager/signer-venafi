@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	capi "k8s.io/api/certificates/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -47,6 +48,7 @@ var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
 var doneMgr chan struct{}
+var clientset *kubernetes.Clientset
 
 var (
 	scheme = runtime.NewScheme()
@@ -81,6 +83,10 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(k8sClient).ToNot(BeNil())
 
+	clientset, err := kubernetes.NewForConfig(cfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(clientset).ToNot(BeNil())
+
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: "0",
@@ -100,7 +106,6 @@ var _ = BeforeSuite(func(done Done) {
 	go func() {
 		Expect(mgr.Start(doneMgr)).To(Succeed())
 	}()
-
 	close(done)
 }, 60)
 
