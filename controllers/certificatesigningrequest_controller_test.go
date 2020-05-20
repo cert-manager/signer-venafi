@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"encoding/pem"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -89,6 +90,8 @@ var _ = Describe("CertificateSigningRequest Reconciler", func() {
 		var actualCSR capi.CertificateSigningRequest
 		Expect(k8sClient.Get(ctx, key, &actualCSR)).To(Succeed())
 
+		time.Sleep(5)
+
 		By("Approving the sample CSR")
 		actualCSR.Status.Conditions = append(
 			actualCSR.Status.Conditions,
@@ -101,9 +104,6 @@ var _ = Describe("CertificateSigningRequest Reconciler", func() {
 		_, err := clientset.CertificatesV1beta1().CertificateSigningRequests().UpdateApproval(ctx, &actualCSR, metav1.UpdateOptions{})
 		Expect(err).To(Succeed())
 
-		// Expect(k8sClient.Get(ctx, key, &actualCSR)).To(Succeed())
-		// Expect(capihelper.IsCertificateRequestApproved(&actualCSR)).To(BeTrue())
-
 		By("Waiting for the CSR to be signed")
 		Eventually(func() ([]byte, error) {
 			err := k8sClient.Get(ctx, key, &actualCSR)
@@ -112,7 +112,7 @@ var _ = Describe("CertificateSigningRequest Reconciler", func() {
 
 		By("Checking that the CSR certificate content is a PEM encoded CERTIFICATE")
 		block, rest := pem.Decode(actualCSR.Status.Certificate)
-		Expect(block.Type).To(Equal("CERTIFICATE"))
+		Expect(block.Type).To(Equal("CERTIFICATEX"))
 		Expect(rest).To(BeEmpty())
 	})
 })
