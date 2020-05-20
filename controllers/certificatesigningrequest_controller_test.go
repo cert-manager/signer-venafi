@@ -9,6 +9,8 @@ import (
 	capi "k8s.io/api/certificates/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	capihelper "github.com/cert-manager/signer-venafi/internal/api"
 )
 
 const sampleCSR = `
@@ -59,7 +61,7 @@ BSvRUW8=
 
 var _ = Describe("CertificateSigningRequest Reconciler", func() {
 	It("Signs a CSR with matching signerName", func() {
-		By("Creating a CSR")
+		By("Creating a sample CSR")
 		ctx := context.Background()
 		csr := &capi.CertificateSigningRequest{
 			ObjectMeta: metav1.ObjectMeta{
@@ -80,16 +82,16 @@ var _ = Describe("CertificateSigningRequest Reconciler", func() {
 		}
 		Expect(k8sClient.Create(ctx, csr)).To(Succeed())
 		defer func() {
+			By("Deleting the sample CSR")
 			Expect(k8sClient.Delete(ctx, csr)).To(Succeed())
 		}()
 
+		By("Fetching the CSR back from the API server")
 		key := client.ObjectKey{Namespace: csr.Namespace, Name: csr.Name}
-
 		var actualCSR capi.CertificateSigningRequest
-
 		Expect(k8sClient.Get(ctx, key, &actualCSR)).To(Succeed())
 
-		By("Approving the CSR")
+		By("Approving the sample CSR")
 		actualCSR.Status.Conditions = append(
 			actualCSR.Status.Conditions,
 			capi.CertificateSigningRequestCondition{
@@ -99,13 +101,16 @@ var _ = Describe("CertificateSigningRequest Reconciler", func() {
 				LastUpdateTime: metav1.Now(),
 			},
 		)
+		Expect(capihelper.IsCertificateRequestApproved(&actualCSR)).To(BeTrue())
 		Expect(k8sClient.Status().Update(ctx, &actualCSR)).To(Succeed())
 
+		By("Waiting for the CSR to be signed")
 		Eventually(func() ([]byte, error) {
 			err := k8sClient.Get(ctx, key, &actualCSR)
 			return actualCSR.Status.Certificate, err
 		}, 5).ShouldNot(BeNil())
 
+		By("Checking that the CSR certificate content is a PEM encoded CERTIFICATE")
 		block, rest := pem.Decode(actualCSR.Status.Certificate)
 		Expect(block.Type).To(Equal("CERTIFICATE"))
 		Expect(rest).To(BeEmpty())
