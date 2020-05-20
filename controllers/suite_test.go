@@ -43,6 +43,7 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var sampleSignerName = "example.com/sample-signer-name"
+var nonMatchingSignerName = "example.com/non-matching-signer-name"
 
 var cfg *rest.Config
 var k8sClient client.Client

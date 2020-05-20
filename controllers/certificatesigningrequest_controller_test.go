@@ -116,3 +116,40 @@ var _ = Describe("CertificateSigningRequest Reconciler", func() {
 		Expect(rest).To(BeEmpty())
 	})
 })
+
+var _ = Describe("CertificateSigningRequest Reconciler", func() {
+	It("Does not sign a CSR if signerName does not match", func() {
+		By("Creating a CSR")
+		ctx := context.Background()
+		csr := &capi.CertificateSigningRequest{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test1",
+				Namespace: "default",
+			},
+			Spec: capi.CertificateSigningRequestSpec{
+				SignerName: &nonMatchingSignerName,
+				Request:    []byte(sampleCSR),
+				Usages: []capi.KeyUsage{
+					"digital signature",
+					"key encipherment",
+					"server auth",
+				},
+			},
+		}
+		Expect(k8sClient.Create(ctx, csr)).To(Succeed())
+		defer func() {
+			Expect(k8sClient.Delete(ctx, csr)).To(Succeed())
+		}()
+
+		key := client.ObjectKey{Namespace: csr.Namespace, Name: csr.Name}
+
+		var actualCSR capi.CertificateSigningRequest
+
+		Expect(k8sClient.Get(ctx, key, &actualCSR)).To(Succeed())
+
+		Eventually(func() ([]byte, error) {
+			err := k8sClient.Get(ctx, key, &actualCSR)
+			return actualCSR.Status.Certificate, err
+		}, 5).Should(BeNil())
+	})
+})
