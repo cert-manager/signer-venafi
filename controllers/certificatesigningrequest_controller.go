@@ -25,6 +25,7 @@ import (
 
 	"github.com/go-logr/logr"
 	capi "k8s.io/api/certificates/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -80,7 +81,7 @@ func (r *CertificateSigningRequestReconciler) Reconcile(req ctrl.Request) (ctrl.
 		}
 
 		original := csr.DeepCopy()
-		csr.Annotations["pickup-id"] = pickupID
+		metav1.SetMetaDataAnnotation(&csr.ObjectMeta, "pickup-id", pickupID)
 
 		if reflect.DeepEqual(original, csr) {
 			return ctrl.Result{}, nil
