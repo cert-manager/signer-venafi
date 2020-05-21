@@ -97,6 +97,7 @@ func (r *CertificateSigningRequestReconciler) Reconcile(req ctrl.Request) (ctrl.
 		certificate, err := r.Signer.Pickup(pickupID)
 		if err != nil {
 			if errors.Is(err, signer.ErrTemporary) {
+				log.V(1).Info("Temporary error picking up certificate", "err", err)
 				return ctrl.Result{RequeueAfter: time.Second}, nil
 			}
 			return ctrl.Result{}, fmt.Errorf("error signing: %v", err)

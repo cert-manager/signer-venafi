@@ -50,7 +50,7 @@ func (o *Signer) Pickup(pickupID string) ([]byte, error) {
 	certs, err := o.Client.RetrieveCertificate(&certificate.Request{PickupID: pickupID})
 	if err != nil {
 		if strings.Contains(err.Error(), "Issuance is pending.") {
-			return nil, fmt.Errorf("%w: certificate not ready", signer.ErrTemporary)
+			return nil, fmt.Errorf("%w: certificate not ready: %s", signer.ErrTemporary, err)
 		}
 		return nil, fmt.Errorf("failed to retrieve certificate: %v", err)
 	}
