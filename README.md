@@ -5,6 +5,13 @@ Experimental Venafi based signer for Kubernetes 1.18 CSR API https://github.com/
 ## Build and Deploy
 
 ```
+cat <<EOF > config/manager/vcert.ini
+tpp_url = https://tpp.example.com/vedsdk
+tpp_user = <tppusername>
+tpp_password = <tpppassword>
+tpp_zone = TLS/SSL\Certificates\For\Example
+EOF
+
 kind create cluster
 make docker-build kind-load deploy
 kubectl -n signer-venafi-system logs deploy/signer-venafi-controller-manager manager --follow
