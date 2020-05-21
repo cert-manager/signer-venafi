@@ -12,8 +12,7 @@ tpp_password = <tpppassword>
 tpp_zone = TLS/SSL\Certificates\For\Example
 EOF
 
-kind create cluster
-make docker-build kind-load deploy
+make kind-create-cluster docker-build kind-load deploy
 kubectl -n signer-venafi-system logs deploy/signer-venafi-controller-manager manager --follow
 ```
 
