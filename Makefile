@@ -19,8 +19,6 @@ ARCH := $(shell go env GOARCH)
 
 ARGS ?=
 
-
-
 # BIN is the directory where build tools such controller-gen and kustomize will
 # be installed.
 # BIN is inherited and exported so that it gets passed down to the make process
@@ -39,7 +37,6 @@ CONTROLLER_GEN := ${BIN}/controller-gen-0.3.0
 # Kustomize
 KUSTOMIZE_VERSION := 3.5.5
 KUSTOMIZE_DOWNLOAD_URL := https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_${OS}_${ARCH}.tar.gz
-KUSTOMIZE_LOCAL_ARCHIVE := /tmp/kustomize_v${KUSTOMIZE_VERSION}_${OS}_${ARCH}.tar.gz
 KUSTOMIZE := ${BIN}/kustomize-${KUSTOMIZE_VERSION}
 
 # Kind
@@ -52,7 +49,6 @@ KUBE_APISERVER_VERSION := 1.18.2
 # Kubebuilder
 KUBEBUILDER_VERSION := 2.3.1
 KUBEBUILDER_DOWNLOAD_URL := https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${KUBEBUILDER_VERSION}/kubebuilder_${KUBEBUILDER_VERSION}_${OS}_${ARCH}.tar.gz
-KUBEBUILDER_LOCAL_ARCHIVE := /tmp/kubebuilder_v${KUBEBUILDER_VERSION}_${OS}_${ARCH}.tar.gz
 KUBEBUILDER_BIN := ${BIN}/kubebuilder_${KUBEBUILDER_VERSION}_${OS}_${ARCH}/bin
 KUBEBUILDER := ${KUBEBUILDER_BIN}/kubebuilder
 export KUBEBUILDER_ASSETS := ${KUBEBUILDER_BIN}
@@ -146,15 +142,15 @@ ${CONTROLLER_GEN}: | ${BIN}
 	cd /tmp; GOBIN=${BIN} GO111MODULE=on go get sigs.k8s.io/controller-tools/cmd/controller-gen@v${CONTROLLER_GEN_VERSION}
 	mv ${BIN}/controller-gen ${CONTROLLER_GEN}
 
+${KUSTOMIZE}: KUSTOMIZE_LOCAL_ARCHIVE=${BIN}/kustomize_v${KUSTOMIZE_VERSION}_${OS}_${ARCH}.tar.gz
 ${KUSTOMIZE}: | ${BIN}
 	curl -sSL -o ${KUSTOMIZE_LOCAL_ARCHIVE} ${KUSTOMIZE_DOWNLOAD_URL}
 	tar -C ${BIN} -x -f ${KUSTOMIZE_LOCAL_ARCHIVE}
 	mv ${BIN}/kustomize ${KUSTOMIZE}
 
-${KUBEBUILDER_LOCAL_ARCHIVE}:
+${KUBEBUILDER}: KUBEBUILDER_LOCAL_ARCHIVE=${BIN}/kubebuilder_v${KUBEBUILDER_VERSION}_${OS}_${ARCH}.tar.gz
+${KUBEBUILDER}: | ${BIN}
 	curl -sSL -o ${KUBEBUILDER_LOCAL_ARCHIVE} ${KUBEBUILDER_DOWNLOAD_URL}
-
-${KUBEBUILDER}: | ${BIN} ${KUBEBUILDER_LOCAL_ARCHIVE}
 	tar -C ${BIN} -x -f ${KUBEBUILDER_LOCAL_ARCHIVE}
 
 ${TEST_ASSET_KUBE_APISERVER}: | ${BIN}
