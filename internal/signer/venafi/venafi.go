@@ -15,8 +15,8 @@ import (
 )
 
 type Signer struct {
-	Client endpoint.Connector
-	Log    logr.Logger
+	ClientFactory func() (endpoint.Connector, error)
+	Log           logr.Logger
 }
 
 var _ signer.Signer = &Signer{}
@@ -36,7 +36,12 @@ func (o *Signer) Sign(csr capi.CertificateSigningRequest) (string, error) {
 	vreq.CSR = csr.Spec.Request
 
 	log.V(1).Info("Requesting certificate")
-	pickupID, err := o.Client.RequestCertificate(vreq, "")
+	client, err := o.ClientFactory()
+	if err != nil {
+		return "", fmt.Errorf("failed to initialise vcert client: %s", err)
+	}
+
+	pickupID, err := client.RequestCertificate(vreq, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to request certificate: %v", err)
 	}
@@ -47,7 +52,11 @@ func (o *Signer) Pickup(pickupID string) ([]byte, error) {
 	log := o.Log.WithName("Pickup")
 
 	log.V(1).Info("Retrieving certificate", "pickup-id", pickupID)
-	certs, err := o.Client.RetrieveCertificate(&certificate.Request{PickupID: pickupID})
+	client, err := o.ClientFactory()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialise vcert client: %s", err)
+	}
+	certs, err := client.RetrieveCertificate(&certificate.Request{PickupID: pickupID})
 	if err != nil {
 		if strings.Contains(err.Error(), "Issuance is pending.") {
 			return nil, fmt.Errorf("%w: certificate not ready: %s", signer.ErrTemporary, err)

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Venafi/vcert"
+	"github.com/Venafi/vcert/pkg/endpoint"
 	"github.com/cert-manager/signer-venafi/internal/signer"
 	"github.com/cert-manager/signer-venafi/internal/signer/venafi"
 	"github.com/go-logr/zapr"
@@ -52,7 +53,12 @@ func TestSigner(t *testing.T) {
 	vcertClient, err := vcert.NewClient(vconf)
 	require.NoError(t, err)
 
-	s := &venafi.Signer{Client: vcertClient, Log: zapr.NewLogger(zaptest.NewLogger(t)).WithName("Signer")}
+	s := &venafi.Signer{
+		ClientFactory: func() (endpoint.Connector, error) {
+			return vcertClient, nil
+		},
+		Log: zapr.NewLogger(zaptest.NewLogger(t)).WithName("Signer"),
+	}
 
 	csr := capi.CertificateSigningRequest{
 		Spec: capi.CertificateSigningRequestSpec{

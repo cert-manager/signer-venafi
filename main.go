@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 
 	capi "k8s.io/api/certificates/v1beta1"
@@ -28,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/Venafi/vcert"
+	"github.com/Venafi/vcert/pkg/endpoint"
 	"github.com/cert-manager/signer-venafi/controllers"
 	"github.com/cert-manager/signer-venafi/internal/signer/venafi"
 	// +kubebuilder:scaffold:imports
@@ -88,15 +90,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	vcertClient, err := vcert.NewClient(vcertConfig)
-	if err != nil {
-		setupLog.Error(err, "unable initialize vcert client", "vcert-config-path", vcertConfigPath)
-		os.Exit(1)
-	}
-
 	signer := &venafi.Signer{
-		Client: vcertClient,
-		Log:    ctrl.Log.WithName("signer").WithName("venafi").WithName("Signer"),
+		ClientFactory: func() (endpoint.Connector, error) {
+			vcertClient, err := vcert.NewClient(vcertConfig)
+			if err != nil {
+				return nil, fmt.Errorf("error initialising vcert client: %v", err)
+			}
+			return vcertClient, nil
+		},
+		Log: ctrl.Log.WithName("signer").WithName("venafi").WithName("Signer"),
 	}
 
 	if err = (&controllers.CertificateSigningRequestReconciler{
