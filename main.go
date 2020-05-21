@@ -62,7 +62,7 @@ func main() {
 		"The name of the configmap used to coordinate leader election between controller-managers.")
 	flag.BoolVar(&debugLogging, "debug-logging", true, "Enable debug logging.")
 	flag.StringVar(&signerName, "signer-name", "example.com/foo", "Only sign CSR with this .spec.signerName.")
-	flag.StringVar(&vcertConfigPath, "vcert-config", "vcert.ini", "Vcert INI file path.")
+	flag.StringVar(&vcertConfigPath, "vcert-config", "/etc/signer-venafi/vcert.ini", "Vcert INI file path.")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(debugLogging)))
