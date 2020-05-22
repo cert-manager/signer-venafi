@@ -34,7 +34,10 @@ import (
 )
 
 const (
+	// The name of the annotation key used to store the pickup ID on the CSR
 	annotationKeyPickupID = "signer-venafi.cert-manager.io/pickup-id"
+	// The number of seconds to wait between pickup attempts
+	pickupRetrySeconds = 5
 )
 
 // CertificateSigningRequestReconciler reconciles a CertificateSigningRequest object
@@ -101,7 +104,7 @@ func (r *CertificateSigningRequestReconciler) Reconcile(req ctrl.Request) (ctrl.
 		if err != nil {
 			if errors.Is(err, signer.ErrTemporary) {
 				log.V(1).Info("Temporary error picking up certificate", "err", err)
-				return ctrl.Result{RequeueAfter: time.Second}, nil
+				return ctrl.Result{RequeueAfter: time.Second * pickupRetrySeconds}, nil
 			}
 			return ctrl.Result{}, fmt.Errorf("error signing: %v", err)
 		}
