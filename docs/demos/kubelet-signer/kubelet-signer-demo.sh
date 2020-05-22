@@ -23,7 +23,7 @@ KIND_JOB="${!}"
 
 
 logger -s "Getting Kube config"
-until ${KIND} get kubeconfig > kube.config; do
+until ${KIND} get kubeconfig > kube.config 2>/dev/null; do
     sleep 1
 done
 
