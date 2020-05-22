@@ -42,8 +42,7 @@ import (
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var sampleSignerName = "example.com/sample-signer-name"
-var nonMatchingSignerName = "example.com/non-matching-signer-name"
+const sampleSignerName = "example.com/sample-signer-name"
 
 var cfg *rest.Config
 var k8sClient client.Client

@@ -29,7 +29,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	capihelper "github.com/cert-manager/signer-venafi/internal/api"
+	"github.com/cert-manager/signer-venafi/internal/filter"
 	"github.com/cert-manager/signer-venafi/internal/signer"
 )
 
@@ -47,6 +47,7 @@ type CertificateSigningRequestReconciler struct {
 	Scheme     *runtime.Scheme
 	Signer     signer.Signer
 	SignerName string
+	Filter     filter.Filter
 }
 
 // +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=get;list;watch
@@ -65,21 +66,12 @@ func (r *CertificateSigningRequestReconciler) Reconcile(req ctrl.Request) (ctrl.
 		return ctrl.Result{}, fmt.Errorf("error getting CSR: %v", err)
 	}
 
+	if err := r.Filter.Check(csr); err != nil {
+		log.V(1).Info("Ignoring", "reason", err.Error())
+		return ctrl.Result{}, nil
+	}
+
 	switch {
-	case csr.Spec.SignerName == nil:
-		log.V(1).Info("CSR does not have a signer name. Ignoring.")
-	case *csr.Spec.SignerName != r.SignerName:
-		log.V(1).Info(
-			"CSR signer name does not match. Ignoring.",
-			"expected-signer-name", r.SignerName,
-			"csr-signer-name", csr.Spec.SignerName,
-		)
-	case !capihelper.IsCertificateRequestApproved(&csr):
-		log.V(1).Info("CSR is not approved. Ignoring.")
-	case csr.Status.Certificate != nil:
-		log.V(1).Info("CSR has already been signed. Ignoring.")
-	case string(csr.Status.Certificate) != "":
-		log.V(1).Info("CSR has already been signed. Ignoring.")
 	case csr.Annotations[annotationKeyPickupID] == "":
 		log.V(1).Info("Signing")
 
@@ -123,6 +115,11 @@ func (r *CertificateSigningRequestReconciler) Reconcile(req ctrl.Request) (ctrl.
 }
 
 func (r *CertificateSigningRequestReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if r.Filter == nil {
+		r.Filter = &filter.CSRFilter{
+			SignerName: r.SignerName,
+		}
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&capi.CertificateSigningRequest{}).
 		Complete(r)

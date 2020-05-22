@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	capi "k8s.io/api/certificates/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -71,7 +72,7 @@ var _ = Describe("CertificateSigningRequest Reconciler", func() {
 			Spec: capi.CertificateSigningRequestSpec{
 				// TODO: KubeBuilder 2.3.1 uses k8s 1.16 which does not have signerName
 				// test fails because SignerName becomes nil after conversion
-				SignerName: &sampleSignerName,
+				SignerName: pointer.StringPtr(sampleSignerName),
 				Request:    []byte(sampleCSR),
 				Usages: []capi.KeyUsage{
 					"digital signature",
@@ -113,42 +114,5 @@ var _ = Describe("CertificateSigningRequest Reconciler", func() {
 		block, rest := pem.Decode(actualCSR.Status.Certificate)
 		Expect(block.Type).To(Equal("CERTIFICATE"))
 		Expect(rest).To(BeEmpty())
-	})
-})
-
-var _ = Describe("CertificateSigningRequest Reconciler", func() {
-	It("Does not sign a CSR if signerName does not match", func() {
-		By("Creating a CSR")
-		ctx := context.Background()
-		csr := &capi.CertificateSigningRequest{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test1",
-				Namespace: "default",
-			},
-			Spec: capi.CertificateSigningRequestSpec{
-				SignerName: &nonMatchingSignerName,
-				Request:    []byte(sampleCSR),
-				Usages: []capi.KeyUsage{
-					"digital signature",
-					"key encipherment",
-					"server auth",
-				},
-			},
-		}
-		Expect(k8sClient.Create(ctx, csr)).To(Succeed())
-		defer func() {
-			Expect(k8sClient.Delete(ctx, csr)).To(Succeed())
-		}()
-
-		key := client.ObjectKey{Namespace: csr.Namespace, Name: csr.Name}
-
-		var actualCSR capi.CertificateSigningRequest
-
-		Expect(k8sClient.Get(ctx, key, &actualCSR)).To(Succeed())
-
-		Eventually(func() ([]byte, error) {
-			err := k8sClient.Get(ctx, key, &actualCSR)
-			return actualCSR.Status.Certificate, err
-		}, 5).Should(BeNil())
 	})
 })
