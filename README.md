@@ -14,8 +14,16 @@ EOF
 
 make kind-create-cluster docker-build kind-load deploy
 kubectl -n signer-venafi-system logs deploy/signer-venafi-controller-manager manager --follow
+
+kubectl apply -f sample-csr.yaml
+kubectl certificate approve sample-csr
 ```
 
+```
+kubectl get csr sample-csr
+NAME         AGE   SIGNERNAME        REQUESTOR          CONDITION
+sample-csr   36s   example.com/foo   kubernetes-admin   Approved,Issued
+```
 
 ## Test
 
