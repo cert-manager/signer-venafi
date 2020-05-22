@@ -33,6 +33,10 @@ import (
 	"github.com/cert-manager/signer-venafi/internal/signer"
 )
 
+const (
+	annotationKeyPickupID = "signer-venafi.cert-manager.io/pickup-id"
+)
+
 // CertificateSigningRequestReconciler reconciles a CertificateSigningRequest object
 type CertificateSigningRequestReconciler struct {
 	client.Client
@@ -73,7 +77,7 @@ func (r *CertificateSigningRequestReconciler) Reconcile(req ctrl.Request) (ctrl.
 		log.V(1).Info("CSR has already been signed. Ignoring.")
 	case string(csr.Status.Certificate) != "":
 		log.V(1).Info("CSR has already been signed. Ignoring.")
-	case csr.Annotations["pickup-id"] == "":
+	case csr.Annotations[annotationKeyPickupID] == "":
 		log.V(1).Info("Signing")
 
 		pickupID, err := r.Signer.Sign(csr)
@@ -82,7 +86,7 @@ func (r *CertificateSigningRequestReconciler) Reconcile(req ctrl.Request) (ctrl.
 		}
 
 		original := csr.DeepCopy()
-		metav1.SetMetaDataAnnotation(&csr.ObjectMeta, "pickup-id", pickupID)
+		metav1.SetMetaDataAnnotation(&csr.ObjectMeta, annotationKeyPickupID, pickupID)
 
 		patch := client.MergeFrom(original)
 		if err := r.Client.Status().Patch(ctx, &csr, patch); err != nil {
@@ -91,7 +95,7 @@ func (r *CertificateSigningRequestReconciler) Reconcile(req ctrl.Request) (ctrl.
 	default:
 		log.V(1).Info("Picking up")
 
-		pickupID := csr.Annotations["pickup-id"]
+		pickupID := csr.Annotations[annotationKeyPickupID]
 
 		certificate, err := r.Signer.Pickup(pickupID)
 		if err != nil {
