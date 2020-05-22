@@ -38,3 +38,13 @@ EOF
 
 VCERT_CONFIG_FILE=$PWD/vcert.tpp.ini make test
 ```
+
+
+## Demo
+
+### Bootstrapping a Kubernetes cluster using Signer-Venafi
+
+[![asciicast](https://asciinema.org/a/uiTx4kH1kS95TQJvE91p529fM.svg)](https://asciinema.org/a/uiTx4kH1kS95TQJvE91p529fM)
+
+
+See `docs/demos/kubelet-signer/kubelet-signer-demo.sh`.
