@@ -53,7 +53,7 @@ func (r *CertificateSigningRequestReconciler) Reconcile(req ctrl.Request) (ctrl.
 	var csr capi.CertificateSigningRequest
 	if err := r.Client.Get(ctx, req.NamespacedName, &csr); err != nil {
 		if client.IgnoreNotFound(err) == nil {
-			log.Info("CSR not found. Ignoring.")
+			log.V(1).Info("CSR not found. Ignoring.")
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, fmt.Errorf("error getting CSR: %v", err)
@@ -63,9 +63,13 @@ func (r *CertificateSigningRequestReconciler) Reconcile(req ctrl.Request) (ctrl.
 	case csr.Spec.SignerName == nil:
 		log.V(1).Info("CSR does not have a signer name. Ignoring.")
 	case *csr.Spec.SignerName != r.SignerName:
-		log.V(1).Info("CSR signer name does not match Reconciler signer name. Ignoring.", "signer-name", csr.Spec.SignerName)
+		log.V(1).Info(
+			"CSR signer name does not match. Ignoring.",
+			"expected-signer-name", r.SignerName,
+			"csr-signer-name", csr.Spec.SignerName,
+		)
 	case !capihelper.IsCertificateRequestApproved(&csr):
-		log.V(1).Info("CSR is not approved, Ignoring.")
+		log.V(1).Info("CSR is not approved. Ignoring.")
 	case csr.Status.Certificate != nil:
 		log.V(1).Info("CSR has already been signed. Ignoring.")
 	case string(csr.Status.Certificate) != "":
@@ -115,7 +119,6 @@ func (r *CertificateSigningRequestReconciler) Reconcile(req ctrl.Request) (ctrl.
 		if err := r.Client.Status().Patch(ctx, &csr, patch); err != nil {
 			return ctrl.Result{}, fmt.Errorf("error patching CSR: %v", err)
 		}
-
 	}
 
 	return ctrl.Result{}, nil
