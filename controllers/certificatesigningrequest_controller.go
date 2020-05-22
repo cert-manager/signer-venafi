@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -85,10 +84,6 @@ func (r *CertificateSigningRequestReconciler) Reconcile(req ctrl.Request) (ctrl.
 		original := csr.DeepCopy()
 		metav1.SetMetaDataAnnotation(&csr.ObjectMeta, "pickup-id", pickupID)
 
-		if reflect.DeepEqual(original, csr) {
-			return ctrl.Result{}, nil
-		}
-
 		patch := client.MergeFrom(original)
 		if err := r.Client.Status().Patch(ctx, &csr, patch); err != nil {
 			return ctrl.Result{}, fmt.Errorf("error patching CSR: %v", err)
@@ -110,10 +105,6 @@ func (r *CertificateSigningRequestReconciler) Reconcile(req ctrl.Request) (ctrl.
 		original := csr.DeepCopy()
 		delete(csr.Annotations, "pickup-id")
 		csr.Status.Certificate = certificate
-
-		if reflect.DeepEqual(original, csr) {
-			return ctrl.Result{}, nil
-		}
 
 		patch := client.MergeFrom(original)
 		if err := r.Client.Status().Patch(ctx, &csr, patch); err != nil {
