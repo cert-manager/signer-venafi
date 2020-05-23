@@ -90,8 +90,6 @@ func TestCSRFilter_Check(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: capi.CertificateSigningRequestSpec{
-					// TODO: KubeBuilder 2.3.1 uses k8s 1.16 which does not have signerName
-					// test fails because SignerName becomes nil after conversion
 					SignerName: pointer.StringPtr(sampleSignerName),
 					Request:    []byte(sampleCSR),
 					Usages: []capi.KeyUsage{
