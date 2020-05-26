@@ -1,8 +1,8 @@
 package venafi
 
 import (
+	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/Venafi/vcert/pkg/certificate"
@@ -60,7 +60,7 @@ func (o *Signer) Pickup(pickupID string) ([]byte, error) {
 	}
 	certs, err := client.RetrieveCertificate(&certificate.Request{PickupID: pickupID})
 	if err != nil {
-		if strings.Contains(err.Error(), "Issuance is pending.") {
+		if errors.Is(err, endpoint.ErrCertificatePending{}) {
 			return nil, fmt.Errorf("%w: certificate not ready: %s", signer.ErrTemporary, err)
 		}
 		return nil, fmt.Errorf("failed to retrieve certificate: %v", err)
