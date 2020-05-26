@@ -44,14 +44,15 @@ import (
 
 const sampleSignerName = "example.com/sample-signer-name"
 
-var cfg *rest.Config
-var k8sClient client.Client
-var testEnv *envtest.Environment
-var doneMgr chan struct{}
-var clientset *kubernetes.Clientset
-
 var (
-	scheme = runtime.NewScheme()
+	cfg       *rest.Config
+	k8sClient client.Client
+	testEnv   *envtest.Environment
+	doneMgr   chan struct{}
+	// clientset is required because controller-runtime client does not yet
+	// support sub-resources (other than status).
+	// See https://github.com/kubernetes-sigs/controller-runtime/issues/172
+	clientset *kubernetes.Clientset
 )
 
 func TestAPIs(t *testing.T) {

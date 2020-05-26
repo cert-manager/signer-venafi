@@ -101,6 +101,9 @@ var _ = Describe("CertificateSigningRequest Reconciler", func() {
 				Message: "Approved for use in test",
 			},
 		)
+		// clientset is required because controller-runtime client does not yet
+		// support sub-resources (other than status).
+		// See https://github.com/kubernetes-sigs/controller-runtime/issues/172
 		_, err := clientset.CertificatesV1beta1().CertificateSigningRequests().UpdateApproval(ctx, &actualCSR, metav1.UpdateOptions{})
 		Expect(err).To(Succeed())
 
