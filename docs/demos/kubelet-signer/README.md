@@ -15,3 +15,4 @@ asciinema rec --command 'make demo-kubelet-signer'  --title "Bootstrapping a Kub
 2. TPP Policy folder linked to a Windows CA template with:
    1. Allowed usages: "signing", "key encipherment", "server auth", "client auth"
    2. Minimum key size: 256
+3. Export the CA certificate from TPP and place the PEM content into `<REPOSITORY>/ca.venafi.crt`
