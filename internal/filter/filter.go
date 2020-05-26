@@ -8,7 +8,13 @@ import (
 	capihelper "github.com/cert-manager/signer-venafi/internal/api"
 )
 
+// Filter allows unsuitable CSR resources to be filtered out before we attempt
+// to process and sign them.
+// This is abstracted so that the filtering logic can be unit-tested separately
+// from the Reconcile function.
 type Filter interface {
+	// Check returns an error if the CSR is unsuitable for processing.
+	// E.g. if it is marked for deletion or if it has not been approved.
 	Check(capi.CertificateSigningRequest) error
 }
 
