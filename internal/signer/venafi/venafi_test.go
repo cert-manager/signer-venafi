@@ -25,6 +25,8 @@ import (
 	capi "k8s.io/api/certificates/v1beta1"
 )
 
+// sampleCSR is generated according to instructions in
+// https://github.com/kelseyhightower/kubernetes-the-hard-way/blob/1.15.3/docs/04-certificate-authority.md
 const sampleCSR = `
 -----BEGIN CERTIFICATE REQUEST-----
 MIICwTCCAakCAQAwfDELMAkGA1UEBhMCVVMxDzANBgNVBAgTBk9yZWdvbjERMA8G
@@ -45,6 +47,9 @@ OKbMbQNLoXS2f6qrS1Iqv4xxvHdDncH4zdhJiLdRqUJrSjPgMQ==
 -----END CERTIFICATE REQUEST-----
 `
 
+// TestSigner verifies the happy path of a successful signer.Sign immediately
+// followed by a signer.Pickup.
+// TODO: Test error cases (connection errors, authentication errors etc)
 func TestSigner(t *testing.T) {
 	vcertConfigFile := os.Getenv("VCERT_CONFIG_FILE")
 	if vcertConfigFile == "" {
