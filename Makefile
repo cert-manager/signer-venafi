@@ -76,7 +76,6 @@ coverage_html: test
 
 .PHONY: manager
 manager: ## Build manager binary
-manager: generate fmt vet
 	go build -o bin/manager main.go
 
 .PHONY: run
@@ -129,6 +128,11 @@ kind-create-cluster: ${KIND}
 kind-load: ## Load the docker image into the Kind cluster
 kind-load: ${KIND}
 	${KIND} load docker-image ${DOCKER_IMAGE}
+
+.PHONY: demo-kubelet-signer
+demo-kubelet-signer: ## A demo showing how to sign Kubelet client certificates
+demo-kubelet-signer: manager
+	docs/demos/kubelet-signer/kubelet-signer-demo.sh
 
 # ==================================
 # Download: tools in ${BIN}
