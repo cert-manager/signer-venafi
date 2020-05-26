@@ -1,3 +1,6 @@
+# A Kind configuration for a cluster with two nodes (control-plane and worker)
+# and with the csrcleaner and csrsigning controllers disabled so that
+# signer-venafi can be used to sign the bootstrap CSR for the worker node.
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
@@ -11,4 +14,5 @@ kubeadmConfigPatches:
     apiVersion: kubeadm.k8s.io/v1beta2
     controllerManager:
       extraArgs:
+        # Disable csrcleaner and csrsigning controllers
         controllers: "*,bootstrapsigner,tokencleaner,-csrcleaner,-csrsigning"
