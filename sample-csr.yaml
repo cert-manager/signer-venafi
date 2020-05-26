@@ -1,0 +1,15 @@
+apiVersion: certificates.k8s.io/v1beta1
+kind: CertificateSigningRequest
+metadata:
+  name: sample-csr
+spec:
+  groups:
+  - system:nodes
+  - system:authenticated
+  request: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlIOE1JR2lBZ0VBTUVBeEZUQVRCZ05WQkFvVERITjVjM1JsYlRwdWIyUmxjekVuTUNVR0ExVUVBeE1lYzNsegpkR1Z0T201dlpHVTZhMmx1WkMxamIyNTBjbTlzTFhCc1lXNWxNRmt3RXdZSEtvWkl6ajBDQVFZSUtvWkl6ajBECkFRY0RRZ0FFVUVMZHBMc0tvM1IrVG9ZalRRaXVTZzVDemI5YW5wcS9ydGNTN3FTb3BuWGtsemtQamhzQURjRnoKaEQ0RHRRZkQ0cUFoR3VPOVBNeTNOZHpEY1RqdUE2QUFNQW9HQ0NxR1NNNDlCQU1DQTBrQU1FWUNJUUQyM1dycgp1ZGJqelZJOFVQb0htYzVlV3o5dU9scWtGNm1nbUdhYmtJVGJsQUloQU4rM2RaL2R0Y2FFSStsWGZsMGdaUUJLCnVBU0F1bHRhZG9jRHhobzcxYWE2Ci0tLS0tRU5EIENFUlRJRklDQVRFIFJFUVVFU1QtLS0tLQo=
+  signerName: example.com/foo
+  usages:
+  - digital signature
+  - key encipherment
+  - client auth
+  username: system:node:kind-control-plane

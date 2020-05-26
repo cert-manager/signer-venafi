@@ -36,4 +36,12 @@ spec:
           requests:
             cpu: 100m
             memory: 20Mi
+        volumeMounts:
+        - name: vcert-config
+          mountPath: "/etc/signer-venafi"
+          readOnly: true
       terminationGracePeriodSeconds: 10
+      volumes:
+      - name: vcert-config
+        secret:
+          secretName: vcert-config
