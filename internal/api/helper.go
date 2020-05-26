@@ -1,5 +1,7 @@
 package api
 
+// Copied from: https://github.com/kubernetes/kubernetes/blob/v1.18.3/pkg/controller/certificates/certificate_controller_utils.go
+
 import (
 	capi "k8s.io/api/certificates/v1beta1"
 )
