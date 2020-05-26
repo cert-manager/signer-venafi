@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+#
+# Start a Kind cluster with csrsigning controller disabled
+# Launch the signer-venafi operator, outside the cluster,
+# to sign the bootstrap CSR for the worker node.
+# E.g.
+#
+# asciinema rec --command 'make demo-kubelet-signer'  --title "Bootstrapping a Kubernetes cluster using Signer-Venafi"
+#
+# See README.md for demo requirements.
+#
 
 set -o errexit
 set -o nounset
