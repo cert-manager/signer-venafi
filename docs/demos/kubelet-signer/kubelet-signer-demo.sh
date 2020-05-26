@@ -75,9 +75,8 @@ function wait_for_nodes() {
 function main() {
     tmux \
         new-session -d "${SCRIPT} kind_create_cluster" \; \
-        split-window -d "${SCRIPT} wait_for_nodes" \; \
-        split-window -d "${SCRIPT} start_operator" \; \
-        select-layout even-vertical \; \
+        split-window -d -v "${SCRIPT} start_operator" \; \
+        split-window -d -h "${SCRIPT} wait_for_nodes" \; \
         attach
     kind delete cluster
 }
