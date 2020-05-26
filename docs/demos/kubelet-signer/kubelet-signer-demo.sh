@@ -9,58 +9,63 @@ export SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export ROOT_DIR="$( cd "${SCRIPT_DIR}/../../.." && pwd )"
 export KIND="${ROOT_DIR}/bin/kind-0.8.1"
 
+function log() {
+    echo
+    echo "# $(date --rfc-3339=ns) :: ${*}"
+}
+
 function kind_create_cluster() {
     ${KIND} create cluster --retain --config "${SCRIPT_DIR}/kind.conf.yaml"
     sleep INFINITY
 }
 
 function start_operator() {
-    logger -s "Waiting for Kube config"
+    log "Waiting for Kube config"
     until ${KIND} get kubeconfig > kube.config 2>/dev/null; do
         sleep 1
     done
 
     export KUBECONFIG="${PWD}/kube.config"
 
-    logger -s "Waiting for API server"
+    log "Waiting for API server"
     until kubectl get nodes; do
         sleep 1
     done
 
-    logger -s "Appending Venafi CA Cert to Cluster CA"
+    log "Appending Venafi CA Cert to Cluster CA"
     docker exec -i kind-control-plane bash -c 'cat >> /etc/kubernetes/pki/ca.crt' < ${ROOT_DIR}/ca.venafi.crt
 
-    logger -s "Restarting the Kube-apiserver"
+    log "Restarting the Kube-apiserver"
     docker exec kind-control-plane bash -c 'kill $(pidof kube-apiserver)'
 
-    logger -s "Waiting for API server"
+    log "Waiting for API server"
     until kubectl get nodes; do
         sleep 1
     done
 
-    logger -s "Starting signer-venafi"
+    log "Starting signer-venafi"
     ${ROOT_DIR}/bin/manager \
                --signer-name=kubernetes.io/kube-apiserver-client-kubelet \
                --vcert-config=${ROOT_DIR}/vcert.ini
 }
 
 function wait_for_nodes() {
-    logger -s "Waiting for Kube config"
+    log "Waiting for Kube config"
     until ${KIND} get kubeconfig > kube.config 2>/dev/null; do
         sleep 1
     done
 
     export KUBECONFIG="${PWD}/kube.config"
 
-    logger -s "Waiting for worker node"
+    log "Waiting for worker node"
     until kubectl get nodes kind-worker >/dev/null 2>&1; do
         sleep 1
     done
 
-    logger -s "Waiting for all nodes to be Ready"
+    log "Waiting for all nodes to be Ready"
     kubectl wait --timeout 5m --for condition=Ready node --all
 
-    logger -s "Cluster ready"
+    log "Cluster ready"
     kubectl get node
 
     sleep 10
