@@ -14,6 +14,8 @@ import (
 	"github.com/cert-manager/signer-venafi/internal/signer"
 )
 
+// Signer implements signer.Signer by sending CSRs to a Venafi TPP or Venafi
+// Cloud service, using the supplied vcert client.
 type Signer struct {
 	ClientFactory func() (endpoint.Connector, error)
 	Log           logr.Logger

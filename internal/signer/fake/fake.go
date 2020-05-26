@@ -8,6 +8,7 @@ import (
 
 const pickupID = "foo-bar"
 
+// Signer is an in-memory implementation of signer.Signer for use in tests.
 type Signer struct {
 	Certificate []byte
 }

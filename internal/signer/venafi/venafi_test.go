@@ -1,5 +1,12 @@
 package venafi_test
 
+// Integration tests.
+// These tests will use the vcert fake client by default.
+// See testdata/vcert.ini
+// To run the tests against a real Venafi server,
+// set VCERT_CONFIG_FILE=path/to/vcert.ini where vcert.ini contains a URL and
+// credentials for your Venafi server.
+
 import (
 	"encoding/pem"
 	"errors"
