@@ -359,7 +359,8 @@ kubeadm init phase certs sa --cert-dir "kubernetes/pki"
 ### Configure Kind to Mount the Pre-generated Certificates and KUBECONFIG files
 
 We are almost ready to start the Kind cluster, but first we need to create a Kind configuration file.
-This configuration will cause Kind to mount our pre-generated certificates and KUBECONFIG files into the Kind control-plane Docker container at the default Kubernetes directory paths:
+This configuration will cause Kind to mount our pre-generated certificates and KUBECONFIG files into the Kind control-plane Docker container at the default Kubernetes directory paths.
+Create a file called `kind.conf.yaml` with the following content:
 
 ```
 kind: Cluster
@@ -390,6 +391,16 @@ Where `${KUBERNETES_DIR}` is absolute the path to `kubernetes/` which contains a
 Notice that these are all mounted `readonly` except `kubelet.conf`, which needs to be mutable because one of the `kubeadm init` steps that will be performed inside the Docker container,
 is to reconfigure the Kubelet to use a dynamically generated KUBECONFIG at `/var/lib/kubernetes` where its embedded certificate can be regularly rotated.
 
+
+## Start the Cluster
+
+Finally, with all the certificates and KUBECONFIG files ready, we can start the cluster using our custom config file:
+
+```
+kind create cluster --retain --config kind.conf.yaml
+```
+
+Notice that we use the `--retain` flag, so that if Kind fails it will leave behind the Docker containers so that we can investigate the problem.
 
 ## Links
 
