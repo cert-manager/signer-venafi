@@ -295,6 +295,52 @@ this is because we are using the same CA for signing the `Etcd` and [Aggregated 
 
 **NOTE: We use a single CA in this demo for simplicity. It is not recommended to use the same CA for all three.**
 
+## Wrapping Up
+
+### Self-signed Kubeconfig Certificates
+
+The `kubelet`, `kube-controller-manager` and `kube-scheduler` all need `kubeconfig` files with embedded client certificates,
+which allow them to connect to the `kube-apiserver`.
+
+In a future revision of this demo, we will show you how these client certificates could be generated from CSRs via TPP.
+
+Meanwhile, we will generate these using `kubeadm init phase kubeconfig` and a self-signed CA key and certificate.
+This is possible, because the kube-apiserver can be configured with multiple CA certificates,
+in which case it will check that clients present a client-auth certificate that has been signed by *one* of these CAs.
+
+First generate a self-signed certificate authority:
+
+```
+kubeadm init phase certs ca --cert-dir "${PWD}/pki.self-signed"
+```
+
+Create all the kubeconfig files:
+
+```
+kubeadm init phase kubeconfig all \
+           --cert-dir "${PWD}/pki.self-signed" \
+           --kubeconfig-dir "kubernetes/" \
+           --control-plane-endpoint kind-control-plane \
+           --node-name kind-control-plane
+```
+
+Notice that we set the API server hostname and the kubelet node name to `kind-control-plane` to match the name used by [Kind].
+
+
+Modify the CA data in each of the KUBECONFIG files:
+
+```
+venafi_ca_data=$(base64 -w 0 < "kubernetes/pki/ca.crt")
+find "kubernetes/" -name '*.conf'  | \
+    xargs -n 1 -I {} -- \
+          kubectl --kubeconfig={} config set clusters.kubernetes.certificate-authority-data "${venafi_ca_data}"
+
+```
+
+Notice that the client certificates embedded in each KUBECONFIG file are signed by the self-signed CA.
+But the CA data in each KUBECONFIG file is set to the TPP CA.
+This is to allow the KUBECONFIG clients to verify the kube-apiserver serving certificate, which is signed by TPP CA.
+
 ## Links
 
 * [Kind](https://kind.sigs.k8s.io)
