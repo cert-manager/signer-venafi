@@ -49,6 +49,16 @@ Set `SAN Types Allowed: DNS, IP`.
 This allows certificates with both DNS names and IP addresses as Subject Alternative Names,
 which is required for external access to the Kubernetes API server of a [Kind] cluster.
 
+Download and install [Vcert], the Venafi CLI tool and create a `vcert.ini` file:
+
+```ini
+tpp_url = https://example.com/vedsdk
+tpp_user = <tpp_username>
+tpp_password = <tpp_password>
+tpp_zone = TLS/SSL\For\Example
+```
+We will use this later to send certificates to TPP for signing.
+
 ## Links
 
 * [Kind](https://kind.sigs.k8s.io)
@@ -56,3 +66,4 @@ which is required for external access to the Kubernetes API server of a [Kind] c
 * [Venafi Trust Protection Platform](https://www.venafi.com/platform/trust-protection-platform)
 * [External CA mode](https://kubernetes.io/docs/tasks/administer-cluster/kubeadm/kubeadm-certs/#external-ca-mode)
 * [Extended Key Usage](https://tools.ietf.org/html/rfc5280#section-4.2.1.12)
+* [Vcert](https://github.com/Venafi/vcert)
