@@ -74,13 +74,6 @@ kubeadm_init_phase_certs <<EOF | vcert_enroll
   front-proxy-client
 EOF
 
-log "Creating Kind config"
-export KUBERNETES_DIR
-envsubst < ${SCRIPT_DIR}/kind.conf.yaml > kind.conf.yaml
-
-log "Creating SA"
-${KUBEADM} init phase certs sa --cert-dir "${CERTIFICATES_DIR}" >/dev/null
-
 log "Creating self-signed certificate authority"
 ${KUBEADM} init phase certs ca --cert-dir "${PWD}/pki.self-signed" >/dev/null
 
@@ -97,12 +90,19 @@ find "${KUBERNETES_DIR}" -name '*.conf'  | \
     xargs -n 1 -I {} -- \
           kubectl --kubeconfig={} config set clusters.kubernetes.certificate-authority-data "${venafi_ca_data}"
 
+log "Creating SA"
+${KUBEADM} init phase certs sa --cert-dir "${CERTIFICATES_DIR}" >/dev/null
+
 log "Installing Venafi CA cert"
 # venafi cert must come first
 # TODO: Why?
 cat "${VCERT_CA}" "${PWD}/pki.self-signed/ca.crt" > "${CERTIFICATES_DIR}/ca.crt"
 cp "${VCERT_CA}" "${CERTIFICATES_DIR}/front-proxy-ca.crt"
 cp "${VCERT_CA}" "${CERTIFICATES_DIR}/etcd/ca.crt"
+
+log "Creating Kind config"
+export KUBERNETES_DIR
+envsubst < ${SCRIPT_DIR}/kind.conf.yaml > kind.conf.yaml
 
 log "Starting Kind"
 ${KIND} create cluster --retain --config kind.conf.yaml
