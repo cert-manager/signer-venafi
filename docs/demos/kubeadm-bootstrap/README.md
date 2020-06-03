@@ -59,10 +59,14 @@ tpp_zone = TLS/SSL\For\Example
 ```
 We will use this later to send certificates to TPP for signing.
 
+Export the Venafi TPP CA certificate as a PEM encoded text file,
+using the Windows Management Console on the server hosting TPP,
+and save it as `ca.venafi.crt`.
+
 ## Demo Script
 
-Most of the steps above have been wrapped in a script alongside this README file.
-See `kubeadm-bootstrap.sh`.
+The steps below have been wrapped in a script.
+See `./kubeadm-bootstrap.sh`.
 
 You can run the script by running `make demo-kubeadm-bootstrap` from the root of this repository.
 
@@ -294,15 +298,15 @@ ess:127.0.0.1
 Notice the "Issuer" details at the top, showing that the certificate is signed by the Venafi CA.
 And notice the [Extended Key Usage] details at the end, showing that this certificate is for server authentication only.
 
-Export the Venafi TPP CA certificate as a PEM encoded text file,
-using the Windows Management Console on the server hosting TPP,
-and save it alongside the signed certificates as `ca.crt`.
-Also save copies of the that file as: `front-proxy-ca.crt` and `etcd/ca.crt`;
-this is because we are using the same CA for signing the `Etcd` and [Aggregated API server] certificates.
+## Wrapping Up
+
+### Create the CA certificate files
+
+Copy the `ca.venafi.crt` (which you downloaded from TPP earlier) file to `kubernetes/pki/ca.crt`
+Also save copies of the that file as: `kubernetes/pki/front-proxy-ca.crt` and `kubernetes/pki/etcd/ca.crt`.
+This is because we are using the same CA for signing the `Etcd` and [Aggregated API server] certificates.
 
 **NOTE: We use a single CA in this demo for simplicity. It is not recommended to use the same CA for all three.**
-
-## Wrapping Up
 
 ### Self-signed Kubeconfig Certificates
 
@@ -321,7 +325,7 @@ First generate a self-signed certificate authority:
 kubeadm init phase certs ca --cert-dir "${PWD}/pki.self-signed"
 ```
 
-And append that the self-signed CA certificate to the existing `ca.crt` PEM file.
+And append that the self-signed CA certificate to the existing `kubernetes/pki/ca.crt` PEM file.
 
 ```
 cat pki.self-signed/ca.crt >> kubernetes/pki/ca.crt
