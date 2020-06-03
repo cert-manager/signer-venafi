@@ -287,6 +287,14 @@ ess:127.0.0.1
 Notice the "Issuer" details at the top, showing that the certificate is signed by the Venafi CA.
 And notice the [Extended Key Usage] details at the end, showing that this certificate is for server authentication only.
 
+Export the Venafi TPP CA certificate as a PEM encoded text file,
+using the Windows Management Console on the server hosting TPP,
+and save it alongside the signed certificates as `ca.crt`.
+Also save copies of the that file as: `front-proxy-ca.crt` and `etcd/ca.crt`;
+this is because we are using the same CA for signing the `Etcd` and [Aggregated API server] certificates.
+
+**NOTE: We use a single CA in this demo for simplicity. It is not recommended to use the same CA for all three.**
+
 ## Links
 
 * [Kind](https://kind.sigs.k8s.io)
