@@ -59,6 +59,13 @@ tpp_zone = TLS/SSL\For\Example
 ```
 We will use this later to send certificates to TPP for signing.
 
+## Demo Script
+
+Most of the steps above have been wrapped in a script alongside this README file.
+See `kubeadm-bootstrap.sh`.
+
+You can run the script by running `make demo-kubeadm-bootstrap` from the root of this repository.
+
 ## Generating Certificate Signing Requests
 
 [Kubeadm] allows you to perform individual phases of its Kubernetes control-plane creation sequence.
