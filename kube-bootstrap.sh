@@ -6,7 +6,6 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-set -o xtrace
 
 OWD="${PWD}"
 SCRIPT="${BASH_SOURCE[0]}"
