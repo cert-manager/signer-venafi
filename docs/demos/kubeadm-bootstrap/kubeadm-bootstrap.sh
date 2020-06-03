@@ -60,12 +60,23 @@ log "Working in ${WORK_DIR}"
 mkdir -p "${WORK_DIR}"
 pushd "${WORK_DIR}"
 
+log "Creating certificates directory ${CERTIFICATES_DIR}"
+mkdir -p "${CERTIFICATES_DIR}"
+
+log "Generating certificate signing requests"
+kubeadm_init_phase_certs <<EOF | vcert_enroll
+  apiserver
+  apiserver-etcd-client
+  apiserver-kubelet-client
+  etcd-healthcheck-client
+  etcd-peer
+  etcd-server
+  front-proxy-client
+EOF
+
 log "Creating Kind config"
 export KUBERNETES_DIR
 envsubst < ${SCRIPT_DIR}/kind.conf.yaml > kind.conf.yaml
-
-log "Creating certificates directory ${CERTIFICATES_DIR}"
-mkdir -p "${CERTIFICATES_DIR}"
 
 log "Creating SA"
 ${KUBEADM} init phase certs sa --cert-dir "${CERTIFICATES_DIR}" >/dev/null
@@ -85,17 +96,6 @@ venafi_ca_data=$(base64 -w 0 < "${SCRIPT_DIR}/ca.venafi.crt")
 find "${KUBERNETES_DIR}" -name '*.conf'  | \
     xargs -n 1 -I {} -- \
           kubectl --kubeconfig={} config set clusters.kubernetes.certificate-authority-data "${venafi_ca_data}"
-
-log "Generating certificate signing requests"
-kubeadm_init_phase_certs <<EOF | vcert_enroll
-  apiserver
-  apiserver-etcd-client
-  apiserver-kubelet-client
-  etcd-healthcheck-client
-  etcd-peer
-  etcd-server
-  front-proxy-client
-EOF
 
 log "Installing Venafi CA cert"
 # venafi cert must come first
