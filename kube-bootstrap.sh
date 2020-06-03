@@ -30,7 +30,7 @@ function kubeadm_init_phase_certs() {
         log "Generating CSR ${cert}"
         local args=""
         if [[ "${cert}" == "apiserver" ]]; then
-            args="--apiserver-cert-extra-sans=kind-control-plane"
+            args="--apiserver-cert-extra-sans=kind-control-plane,127.0.0.1"
         fi
         ${KUBEADM} init phase certs "${cert}" ${args} --csr-only --csr-dir "${CERTIFICATES_DIR}" --cert-dir "${CERTIFICATES_DIR}" >/dev/null
         echo "${cert} ${CERTIFICATES_DIR}/${cert/#etcd-/etcd\/}.csr"
@@ -64,6 +64,25 @@ pushd "${WORK_DIR}"
 log "Creating certificates directory ${CERTIFICATES_DIR}"
 mkdir -p "${CERTIFICATES_DIR}"
 
+log "Creating SA"
+${KUBEADM} init phase certs sa --cert-dir "${CERTIFICATES_DIR}" >/dev/null
+
+log "Creating self-signed certificate authority"
+${KUBEADM} init phase certs ca --cert-dir "${PWD}/pki.self-signed" >/dev/null
+
+log "Creating Kubeconfigs"
+${KUBEADM} init phase kubeconfig all \
+           --cert-dir "${PWD}/pki.self-signed" \
+           --kubeconfig-dir "${KUBERNETES_DIR}" \
+           --control-plane-endpoint kind-control-plane \
+           --node-name kind-control-plane
+
+log "Setting Venafi CA in all kubeconfigs"
+venafi_ca_data=$(base64 -w 0 < "${ROOT_DIR}/ca.venafi.crt")
+find "${KUBERNETES_DIR}" -name '*.conf'  | \
+    xargs -n 1 -I {} -- \
+          kubectl --kubeconfig={} config set clusters.kubernetes.certificate-authority-data "${venafi_ca_data}"
+
 log "Generating certificate signing requests"
 kubeadm_init_phase_certs <<EOF | vcert_enroll
   apiserver
@@ -75,16 +94,10 @@ kubeadm_init_phase_certs <<EOF | vcert_enroll
   front-proxy-client
 EOF
 
-log "Creating self-signed certificate authority"
-${KUBEADM} init phase certs ca --cert-dir "${CERTIFICATES_DIR}" >/dev/null
-
-log "Creating SA"
-${KUBEADM} init phase certs sa --cert-dir "${CERTIFICATES_DIR}" >/dev/null
-
 log "Installing Venafi CA cert"
 # venafi cert must come first
-cat "${ROOT_DIR}/ca.venafi.crt" "${CERTIFICATES_DIR}/ca.crt" > "${CERTIFICATES_DIR}/ca.crt.new"
-mv "${CERTIFICATES_DIR}/ca.crt.new" "${CERTIFICATES_DIR}/ca.crt"
+# TODO: Why?
+cat "${ROOT_DIR}/ca.venafi.crt" "${PWD}/pki.self-signed/ca.crt" > "${CERTIFICATES_DIR}/ca.crt"
 cp "${ROOT_DIR}/ca.venafi.crt" "${CERTIFICATES_DIR}/front-proxy-ca.crt"
 cp "${ROOT_DIR}/ca.venafi.crt" "${CERTIFICATES_DIR}/etcd/ca.crt"
 
