@@ -41,7 +41,7 @@ KUSTOMIZE := ${BIN}/kustomize-${KUSTOMIZE_VERSION}
 
 # Kind
 KIND_VERSION := 0.8.1
-KIND := ${BIN}/kind-${KIND_VERSION}
+export KIND := ${BIN}/kind-${KIND_VERSION}
 
 # Kube API Server
 KUBE_APISERVER_VERSION := 1.18.2
@@ -57,6 +57,12 @@ export TEST_ASSET_ETCD := ${KUBEBUILDER_BIN}/etcd
 export TEST_ASSET_KUBECTL := ${KUBEBUILDER_BIN}/kubectl
 KUBEBUILDER_TEST_ASSETS := ${TEST_ASSET_KUBE_APISERVER} ${TEST_ASSET_ETCD} ${TEST_ASSET_KUBECTL}
 export KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT := "true"
+
+# Kubeadm
+KUBEADM_VERSION := 1.18.2
+export KUBEADM := ${BIN}/kubeadm-${KUBEADM_VERSION}
+
+export VCERT_INI := ${CURDIR}/vcert.ini
 
 # from https://suva.sh/posts/well-documented-makefiles/
 .PHONY: help
@@ -134,6 +140,11 @@ demo-kubelet-signer: ## A demo showing how to sign Kubelet client certificates
 demo-kubelet-signer: manager
 	docs/demos/kubelet-signer/kubelet-signer-demo.sh
 
+.PHONY: demo-kubeadm-bootstrap
+demo-kubeadm-bootstrap: ## A demo showing how to use kubeadm with a Venafi CA
+demo-kubeadm-bootstrap: ${KIND} ${KUBEADM} ${VCERT_INI}
+	docs/demos/kubeadm-bootstrap/kubeadm-bootstrap.sh
+
 # ==================================
 # Download: tools in ${BIN}
 # ==================================
@@ -164,6 +175,11 @@ ${TEST_ASSET_KUBE_APISERVER}: | ${BIN}
 
 ${KUBEBUILDER_TEST_ASSETS}: ${KUBEBUILDER}
 
-${KIND}: ${BIN}
+${KIND}: | ${BIN}
 	curl -sSL -o ${KIND} https://github.com/kubernetes-sigs/kind/releases/download/v${KIND_VERSION}/kind-${OS}-${ARCH}
 	chmod +x ${KIND}
+
+${KUBEADM}: | ${BIN}
+	curl -sSL -o ${KUBEADM} \
+			https://storage.googleapis.com/kubernetes-release/release/v${KUBEADM_VERSION}/bin/${OS}/${ARCH}/kubeadm
+	chmod +x ${KUBEADM}

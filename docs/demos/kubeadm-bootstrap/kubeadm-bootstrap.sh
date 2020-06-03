@@ -7,17 +7,17 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-OWD="${PWD}"
-SCRIPT="${BASH_SOURCE[0]}"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-ROOT_DIR="${SCRIPT_DIR}"
-KIND="${ROOT_DIR}/bin/kind-0.8.1"
-KUBEADM="${ROOT_DIR}/kubeadm"
-WORK_DIR="${OWD}/signer-venafi-kube-bootstrap"
+OWD="${PWD}"
+WORK_DIR="${OWD}/demo-kubeadm-bootstrap"
 KUBERNETES_DIR="${WORK_DIR}/etc_kubernetes"
 CERTIFICATES_DIR="${KUBERNETES_DIR}/pki"
-VCERT_INI="${ROOT_DIR}/vcert.ini"
 VCERT_ZONE="TLS/SSL\Certificates\Kubernetes"
+VCERT_CA="${SCRIPT_DIR}/ca.venafi.crt"
+
+: ${VCERT_INI:?}
+: ${KIND:?}
+: ${KUBEADM:?}
 
 function log() {
     echo >&2
@@ -60,6 +60,10 @@ log "Working in ${WORK_DIR}"
 mkdir -p "${WORK_DIR}"
 pushd "${WORK_DIR}"
 
+log "Creating Kind config"
+export KUBERNETES_DIR
+envsubst < ${SCRIPT_DIR}/kind.conf.yaml > kind.conf.yaml
+
 log "Creating certificates directory ${CERTIFICATES_DIR}"
 mkdir -p "${CERTIFICATES_DIR}"
 
@@ -77,7 +81,7 @@ ${KUBEADM} init phase kubeconfig all \
            --node-name kind-control-plane
 
 log "Setting Venafi CA in all kubeconfigs"
-venafi_ca_data=$(base64 -w 0 < "${ROOT_DIR}/ca.venafi.crt")
+venafi_ca_data=$(base64 -w 0 < "${SCRIPT_DIR}/ca.venafi.crt")
 find "${KUBERNETES_DIR}" -name '*.conf'  | \
     xargs -n 1 -I {} -- \
           kubectl --kubeconfig={} config set clusters.kubernetes.certificate-authority-data "${venafi_ca_data}"
@@ -96,9 +100,9 @@ EOF
 log "Installing Venafi CA cert"
 # venafi cert must come first
 # TODO: Why?
-cat "${ROOT_DIR}/ca.venafi.crt" "${PWD}/pki.self-signed/ca.crt" > "${CERTIFICATES_DIR}/ca.crt"
-cp "${ROOT_DIR}/ca.venafi.crt" "${CERTIFICATES_DIR}/front-proxy-ca.crt"
-cp "${ROOT_DIR}/ca.venafi.crt" "${CERTIFICATES_DIR}/etcd/ca.crt"
+cat "${VCERT_CA}" "${PWD}/pki.self-signed/ca.crt" > "${CERTIFICATES_DIR}/ca.crt"
+cp "${VCERT_CA}" "${CERTIFICATES_DIR}/front-proxy-ca.crt"
+cp "${VCERT_CA}" "${CERTIFICATES_DIR}/etcd/ca.crt"
 
 log "Starting Kind"
-${KIND} create cluster --retain --config ${ROOT_DIR}/kind.conf.yaml
+${KIND} create cluster --retain --config kind.conf.yaml
