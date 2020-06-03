@@ -314,6 +314,12 @@ First generate a self-signed certificate authority:
 kubeadm init phase certs ca --cert-dir "${PWD}/pki.self-signed"
 ```
 
+And append that the self-signed CA certificate to the existing `ca.crt` PEM file.
+
+```
+cat pki.self-signed/ca.crt >> kubernetes/pki/ca.crt
+```
+
 Create all the kubeconfig files:
 
 ```
@@ -337,9 +343,53 @@ find "kubernetes/" -name '*.conf'  | \
 
 ```
 
-Notice that the client certificates embedded in each KUBECONFIG file are signed by the self-signed CA.
+Notice that the client certificates embedded in each KUBECONFIG file are still signed by the self-signed CA.
 But the CA data in each KUBECONFIG file is set to the TPP CA.
 This is to allow the KUBECONFIG clients to verify the kube-apiserver serving certificate, which is signed by TPP CA.
+Also note that the CA PEM data is base64 encoded (without line-breaks).
+
+### Create a Service Account Token Encryption Key Pair
+
+We also have to pre-create the `sa.key` and `sa.pub` key pair, which is used by the API server to encrypt authentication tokens used by intra-cluster clients, via Service Accounts.
+
+```
+kubeadm init phase certs sa --cert-dir "kubernetes/pki"
+```
+
+### Configure Kind to Mount the Pre-generated Certificates and KUBECONFIG files
+
+We are almost ready to start the Kind cluster, but first we need to create a Kind configuration file.
+This configuration will cause Kind to mount our pre-generated certificates and KUBECONFIG files into the Kind control-plane Docker container at the default Kubernetes directory paths:
+
+```
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  image: kindest/node:v1.18.2@sha256:7b27a6d0f2517ff88ba444025beae41491b016bc6af573ba467b70c5e8e0d85f
+  extraMounts:
+    - containerPath: /etc/kubernetes/pki
+      hostPath: ${KUBERNETES_DIR}/pki
+      readOnly: true
+    - containerPath: /etc/kubernetes/admin.conf
+      hostPath: ${KUBERNETES_DIR}/admin.conf
+      readOnly: true
+    - containerPath: /etc/kubernetes/controller-manager.conf
+      hostPath: ${KUBERNETES_DIR}/controller-manager.conf
+      readOnly: true
+    - containerPath: /etc/kubernetes/kubelet.conf
+      hostPath: ${KUBERNETES_DIR}/kubelet.conf
+      readOnly: false
+    - containerPath: /etc/kubernetes/scheduler.conf
+      hostPath: ${KUBERNETES_DIR}/scheduler.conf
+      readOnly: true
+```
+
+Where `${KUBERNETES_DIR}` is absolute the path to `kubernetes/` which contains all the KUBECONFIG files and the `pki/` sub-directory.
+
+Notice that these are all mounted `readonly` except `kubelet.conf`, which needs to be mutable because one of the `kubeadm init` steps that will be performed inside the Docker container,
+is to reconfigure the Kubelet to use a dynamically generated KUBECONFIG at `/var/lib/kubernetes` where its embedded certificate can be regularly rotated.
+
 
 ## Links
 
