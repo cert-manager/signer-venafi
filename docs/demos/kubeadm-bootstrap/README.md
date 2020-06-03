@@ -402,6 +402,27 @@ kind create cluster --retain --config kind.conf.yaml
 
 Notice that we use the `--retain` flag, so that if Kind fails it will leave behind the Docker containers so that we can investigate the problem.
 
+## Discussion
+
+### kubeadm init phase kubeconfig all --crd-only
+
+It would be useful if `kubeadm` had the ability to generate CSR files for the KUBECONFIG files so that they can easily be signed by an external CA.
+It would then be useful to be able to use `kubeadm` to complete the KUBECONFIG files from an existing signed `.crt` file.
+
+### kubeadm should have a pluggable automated signing mechanism
+
+To simplify this whole process of using `kubeadm init` with an external CA.
+
+### TPP should have an API for dynamically configuring policy folders
+
+It is difficult to set up TPP with all the necessary CA templates and policy folders, but as far as I can see it is not possible to automate the policy creation with the TPP API.
+
+### Venafi Cloud should support ECDSA certificates
+
+All the Kubernetes tools are hardcoded to create ECDSA keys and certificates, but these are not supported by Venafi Cloud.
+
+
+
 ## Links
 
 * [Kind](https://kind.sigs.k8s.io)
