@@ -159,6 +159,134 @@ Certificate Request:
 
 Notice the mix of DNS and IP SANs.
 
+## Signing Certificates with Venafi TPP
+
+Now you need to send all those CSR files to your Venafi TPP server to be signed.
+Each CSR needs to be submitted to the TPP policy sub-folder corresponding to that certificate's required [Extended Key Usage] attributes.
+You can do this using the `vcert enroll` sub-command, as follows:
+
+```!sh
+vcert enroll -z "${VCERT_ZONE}\server" --config ${VCERT_INI} --nickname apiserver --csr file:kubernetes/pki/apiserver.csr --cert-file kubernetes/pki/apiserver.crt
+```
+
+This will submit the CSR file to TPP and poll until the signed certificate is downloaded.
+
+Here is a snippet of bash which can be used to sign all the certificates:
+
+```!sh
+function vcert_enroll() {
+    while read nickname csr; do
+        cert="${csr/%.csr/.crt}"
+        policy="$(echo "${nickname}" | grep -o '\(client\|server\|peer\)$')"
+        # Special case for etcd-server which needs both server and client usage
+        # See https://clusterise.com/articles/kbp-2-certificates/ and
+        # https://kubernetes.io/docs/setup/best-practices/certificates/#all-certificates
+        if [[ "${nickname}" == "etcd-server" ]]; then
+            policy=peer
+        fi
+        log "Enrolling CSR ${csr} with nickname ${nickname} to ${cert}"
+        vcert enroll -z "${VCERT_ZONE}\\${policy}"  --config ${VCERT_INI} --nickname "${nickname}" --csr "file:${csr}" --cert-file "${cert}" >/dev/null
+    done
+}
+
+
+vcert_enroll <<EOF
+  apiserver kubernetes/pki/apiserver.csr
+  apiserver-etcd-client kubernetes/pki/apiserver-etcd-client.csr
+  apiserver-kubelet-client kubernetes/pki/apiserver-kubelet-client.csr
+  etcd-healthcheck-client kubernetes/pki/etcd/healthcheck-client.csr
+  etcd-peer kubernetes/pki/etcd/peer.csr
+  etcd-server kubernetes/pki/etcd/server.csr
+  front-proxy-client kubernetes/pki/front-proxy-client.csr
+EOF
+```
+
+You can examine the signed certificates using `openssl`, as follows:
+
+```!sh
+$ openssl x509 -noout -text -in demo-kubeadm-bootstrap/etc_kubernetes/pki/apiserver.crt
+Certificate:
+    Data:
+        Version: 3 (0x2)
+        Serial Number:
+            2f:00:00:02:27:82:75:58:d2:40:d1:94:c3:00:00:00:00:02:27
+        Signature Algorithm: sha256WithRSAEncryption
+        Issuer: DC = com, DC = venafidemo, CN = venafidemo-TPP-CA
+        Validity
+            Not Before: Jun  3 10:10:21 2020 GMT
+            Not After : Jun  3 10:10:21 2021 GMT
+        Subject: CN = kube-apiserver
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                RSA Public-Key: (2048 bit)
+                Modulus:
+                    00:9f:09:81:6f:68:fa:7f:0d:dd:52:6e:91:e9:a9:
+                    63:17:2c:cd:42:de:04:c4:1a:df:ac:fa:e9:f0:26:
+                    b9:4a:73:59:83:72:42:2a:b3:fb:9c:f4:1c:06:27:
+                    a8:92:fe:e1:2f:99:29:b3:c6:fe:01:61:0c:47:46:
+                    33:09:84:63:d9:4c:20:29:69:84:c7:9c:2b:b8:9a:
+                    00:ef:f3:ab:16:5f:a6:61:be:02:ec:e0:78:9f:29:
+                    86:d1:97:35:9f:7c:7a:9e:77:40:97:8b:94:aa:02:
+                    6b:46:d5:44:6b:ea:44:0d:50:4d:44:97:81:42:6c:
+                    00:28:42:42:d8:86:cc:7c:3e:68:9e:1b:bd:72:99:
+                    0c:0c:98:c6:06:fb:c6:dc:0a:de:12:95:81:af:aa:
+                    ef:70:5c:1b:79:4c:6f:ec:53:7d:e4:57:c9:1a:99:
+                    76:a7:00:46:85:84:df:f1:6f:b0:e4:50:23:cd:77:
+                    45:e4:fa:30:3f:b2:fa:bf:41:46:35:eb:0b:cb:a3:
+                    2e:d8:23:f1:6d:01:ef:19:80:c4:de:b0:fd:5a:60:
+                    93:b0:73:1f:6a:a6:fc:43:3b:6c:18:61:f9:02:d2:
+                    12:19:86:05:1a:8a:16:51:b3:43:14:76:dd:e7:97:
+                    88:28:7a:69:52:f2:43:5d:e5:68:4c:60:cb:53:2a:
+                    87:af
+                Exponent: 65537 (0x10001)
+        X509v3 extensions:
+            X509v3 Subject Alternative Name:
+                DNS:drax, DNS:kubernetes, DNS:kubernetes.default, DNS:kubernetes.default.svc, DNS:kubernetes.default.svc.cluster.local, DNS:kind-control-plane, DNS:kube-apiserver, IP Address:10.96.0.1, IP Address:192.168.0.11, IP Addr
+ess:127.0.0.1
+            X509v3 Subject Key Identifier:
+                D8:99:F5:2B:D3:7A:41:E9:EC:5C:CA:27:41:F1:C6:74:E0:85:94:F3
+            X509v3 Authority Key Identifier:
+                keyid:83:75:7A:54:58:18:B8:22:1D:28:77:BE:ED:E5:29:3F:D8:A1:F5:FE
+
+            X509v3 CRL Distribution Points:
+
+                Full Name:
+                  URI:ldap:///CN=venafidemo-TPP-CA,CN=tpp,CN=CDP,CN=Public%20Key%20Services,CN=Services,CN=Configuration,DC=venafidemo,DC=com?certificateRevocationList?base?objectClass=cRLDistributionPoint
+
+            Authority Information Access:
+                CA Issuers - URI:ldap:///CN=venafidemo-TPP-CA,CN=AIA,CN=Public%20Key%20Services,CN=Services,CN=Configuration,DC=venafidemo,DC=com?cACertificate?base?objectClass=certificationAuthority
+
+            X509v3 Key Usage: critical
+                Digital Signature, Key Encipherment
+            1.3.6.1.4.1.311.21.7:
+                0/.'+.....7.........l...<...:...S.f...6......d...
+            X509v3 Extended Key Usage:
+                TLS Web Server Authentication
+            1.3.6.1.4.1.311.21.10:
+                0.0
+..+.......
+    Signature Algorithm: sha256WithRSAEncryption
+         00:a0:64:99:93:c2:7d:cf:a0:c8:ae:2b:6b:66:64:a8:3a:c4:
+         6c:75:43:5b:27:67:de:42:94:ed:cd:8a:13:02:e7:43:65:21:
+         77:30:e3:d1:ce:df:97:0a:f4:3e:03:31:6f:35:50:23:28:04:
+         3a:93:f8:cd:c7:59:b5:77:56:75:50:87:82:8e:60:6b:75:f1:
+         cc:e2:72:fc:3c:7d:29:ee:93:d4:a9:c6:a4:cd:62:b7:66:5d:
+         44:09:63:97:3d:46:5a:7d:f5:63:c2:e4:d0:e4:f7:b8:db:9d:
+         70:e0:8a:94:13:d5:59:1c:c3:bd:0c:b3:9e:e1:a7:99:65:9f:
+         13:71:df:78:f2:e7:1d:c6:81:ef:ef:f5:af:99:fd:57:a9:e4:
+         a9:ac:8f:6f:76:a4:1f:8a:d1:7c:21:49:fa:6b:c1:12:84:3f:
+         97:1b:27:34:d2:1e:3b:71:36:03:76:53:e3:ac:98:f8:14:81:
+         96:80:3b:de:77:d7:37:32:f6:d5:4f:52:b2:8c:a1:72:f8:fd:
+         fb:96:cc:c9:95:4d:f6:bc:6f:53:6c:75:cc:f7:20:98:71:71:
+         f2:0b:50:40:f3:5a:e8:1d:a8:99:37:7d:0f:df:d5:64:3f:0e:
+         5c:aa:53:d4:a7:b4:71:2a:22:6e:79:4a:c2:7d:1a:2c:0b:2e:
+         3a:97:c0:74
+
+```
+
+Notice the "Issuer" details at the top, showing that the certificate is signed by the Venafi CA.
+And notice the [Extended Key Usage] details at the end, showing that this certificate is for server authentication only.
+
 ## Links
 
 * [Kind](https://kind.sigs.k8s.io)
