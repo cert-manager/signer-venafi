@@ -12,7 +12,7 @@ OWD="${PWD}"
 WORK_DIR="${OWD}/demo-kubeadm-bootstrap"
 KUBERNETES_DIR="${WORK_DIR}/etc_kubernetes"
 CERTIFICATES_DIR="${KUBERNETES_DIR}/pki"
-VCERT_ZONE="TLS/SSL\Certificates\Kubernetes"
+VCERT_ZONE="TLS/SSL\Certificates\Kubernetes\Cluster1"
 VCERT_CA="${SCRIPT_DIR}/ca.venafi.crt"
 
 : ${VCERT_INI:?}
