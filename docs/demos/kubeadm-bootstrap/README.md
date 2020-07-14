@@ -26,6 +26,15 @@ You will need certificates configured with specific sets of [Extended Key Usage]
 Kubernetes requires some serving certificates and some client certificates.
 Etcd peer servers require certificates that can be used for both serving and client authentication.
 
+In the Microsoft Windows certificate template management console, you will need to create three new CA templates:
+
+* kubernetes-client - with extended usages: clientAuth
+* kubernetes-server - with extended usages: serverAuth
+* kubernetes-peer - with extended usages: clientAuth, serverAuth
+
+
+In the Microsoft Windows certificate authority management console, you will need to add those three new templates to an existing CA certificate.
+
 In TPP you will need to create three "certificate policy folders" linked to three different "CA templates", as follows:
 
 * Policy
@@ -55,7 +64,7 @@ Download and install [Vcert], the Venafi CLI tool and create a `vcert.ini` file:
 tpp_url = https://example.com/vedsdk
 tpp_user = <tpp_username>
 tpp_password = <tpp_password>
-tpp_zone = TLS/SSL\For\Example
+tpp_zone = TLS/SSL\Certificates\Kubernetes\Cluster1
 ```
 We will use this later to send certificates to TPP for signing.
 
@@ -68,57 +77,74 @@ and save it as `ca.venafi.crt`.
 The steps below have been wrapped in a script.
 See `./kubeadm-bootstrap.sh`.
 
+[![asciicast](https://asciinema.org/a/Q7SdfrI94VuemPh23MJqGvMLu.svg)](https://asciinema.org/a/Q7SdfrI94VuemPh23MJqGvMLu)
+
 You can run the script by running `make demo-kubeadm-bootstrap` from the root of this repository.
 
 ## Generating Certificate Signing Requests
 
-[Kubeadm] allows you to perform individual phases of its Kubernetes control-plane creation sequence.
-Use the sub-command `kubeadm init --help` to see an overview of these phases and
-use `kubeadm init phase --help` to see how to run a single phase.
-
-Run sub-steps of the `certs` phase to generate certificate signing requests for each of the Kubernetes control-plane components,
-which we will later submit to TPP using the `vcert` command.
+Run `kubeadm alpha certs generate-csr` to generate private keys and CSR files for all the certificates required by the Kubernetes control-plane.
 For example:
 
 ```!sh
-kubeadm init phase certs apiserver \
-  --apiserver-cert-extra-sans=kind-control-plane,127.0.0.1 \
-  --csr-only \
-  --csr-dir "${CERTIFICATES_DIR}" \
-  --cert-dir "${CERTIFICATES_DIR}"
+kubeadm alpha certs generate-csr \
+           --config kubeadm.conf \
+           --kubeconfig-dir etc_kubernetes/pki \
+           --cert-dir etc_kubernetes/pki
 ```
-This will create two files `apiserver.key` and `apiserver.csr`.
 
-Here is a snippet of bash which can be used to create these CSR files for all the components:
+Where `kubeadm.conf` contains:
 
-```!sh
-function kubeadm_init_phase_certs() {
-    while read cert; do
-        log "Generating CSR ${cert}"
-        local args=""
-        if [[ "${cert}" == "apiserver" ]]; then
-            args="--apiserver-cert-extra-sans=kind-control-plane,127.0.0.1"
-        fi
-        ${KUBEADM} init phase certs "${cert}" ${args} --csr-only --csr-dir "${CERTIFICATES_DIR}" --cert-dir "${CERTIFICATES_DIR}" >/dev/null
-        echo "${cert} ${CERTIFICATES_DIR}/${cert/#etcd-/etcd\/}.csr"
-    done
-}
+```
+---
+apiVersion: kubeadm.k8s.io/v1beta2
+kind: ClusterConfiguration
+apiServer:
+  certSANs:
+  - "kind-control-plane"
+  - "127.0.0.1"
+controlPlaneEndpoint: "kind-control-plane"
+---
+apiVersion: kubeadm.k8s.io/v1beta2
+kind: InitConfiguration
+nodeRegistration:
+  name: "kind-control-plane"
+```
 
-kubeadm_init_phase_certs <<EOF
-  apiserver
-  apiserver-etcd-client
-  apiserver-kubelet-client
-  etcd-healthcheck-client
-  etcd-peer
-  etcd-server
-  front-proxy-client
-EOF
+This will create the following directories and files:
+
+```
+etc_kubernetes/
+└── pki
+    ├── admin.conf
+    ├── admin.conf.csr
+    ├── apiserver.csr
+    ├── apiserver-etcd-client.csr
+    ├── apiserver-etcd-client.key
+    ├── apiserver.key
+    ├── apiserver-kubelet-client.csr
+    ├── apiserver-kubelet-client.key
+    ├── controller-manager.conf
+    ├── controller-manager.conf.csr
+    ├── etcd
+    │   ├── healthcheck-client.csr
+    │   ├── healthcheck-client.key
+    │   ├── peer.csr
+    │   ├── peer.key
+    │   ├── server.csr
+    │   └── server.key
+    ├── front-proxy-client.csr
+    ├── front-proxy-client.key
+    ├── kubelet.conf
+    ├── kubelet.conf.csr
+    ├── scheduler.conf
+    └── scheduler.conf.csr
 ```
 
 You can examine the CSR files using the `openssl` command, as follows:
 
 ```!shell
-$ openssl req -noout -text -in demo-kubeadm-bootstrap//etc_kubernetes/pki/apiserver.csr
+$ openssl req -noout -text -in etc_kubernetes/pki/apiserver.csr
 Certificate Request:
     Data:
         Version: 1 (0x0)
@@ -188,34 +214,36 @@ Here is a snippet of bash which can be used to sign all the certificates:
 function vcert_enroll() {
     while read nickname csr; do
         cert="${csr/%.csr/.crt}"
-        policy="$(echo "${nickname}" | grep -o '\(client\|server\|peer\)$')"
+        policy="$(echo "${nickname}" | grep -o '\(client\|server\|peer\)$' || true)"
         # Special case for etcd-server which needs both server and client usage
         # See https://clusterise.com/articles/kbp-2-certificates/ and
         # https://kubernetes.io/docs/setup/best-practices/certificates/#all-certificates
         if [[ "${nickname}" == "etcd-server" ]]; then
             policy=peer
         fi
-        log "Enrolling CSR ${csr} with nickname ${nickname} to ${cert}"
+        if echo "${nickname}" | grep '\.conf$' > /dev/null; then
+            policy=client
+        fi
+        log "Enrolling CSR ${csr} with nickname ${nickname} to ${cert} with policy ${policy}"
         vcert enroll -z "${VCERT_ZONE}\\${policy}"  --config ${VCERT_INI} --nickname "${nickname}" --csr "file:${csr}" --cert-file "${cert}" >/dev/null
     done
 }
 
-
-vcert_enroll <<EOF
-  apiserver kubernetes/pki/apiserver.csr
-  apiserver-etcd-client kubernetes/pki/apiserver-etcd-client.csr
-  apiserver-kubelet-client kubernetes/pki/apiserver-kubelet-client.csr
-  etcd-healthcheck-client kubernetes/pki/etcd/healthcheck-client.csr
-  etcd-peer kubernetes/pki/etcd/peer.csr
-  etcd-server kubernetes/pki/etcd/server.csr
-  front-proxy-client kubernetes/pki/front-proxy-client.csr
-EOF
+find ${KUBERNETES_DIR} -name '*.csr' | \
+    while read path; do
+        nickname=$(basename $path .csr)
+        if echo $path | fgrep '/etcd/' >/dev/null; then
+            nickname="etcd-${nickname}"
+        fi
+        echo $nickname $path
+    done | \
+        vcert_enroll
 ```
 
 You can examine the signed certificates using `openssl`, as follows:
 
 ```!sh
-$ openssl x509 -noout -text -in demo-kubeadm-bootstrap/etc_kubernetes/pki/apiserver.crt
+$ openssl x509 -noout -text -in etc_kubernetes/pki/apiserver.crt
 Certificate:
     Data:
         Version: 3 (0x2)
@@ -308,41 +336,12 @@ This is because we are using the same CA for signing the `Etcd` and [Aggregated 
 
 **NOTE: We use a single CA in this demo for simplicity. It is not recommended to use the same CA for all three.**
 
-### Self-signed Kubeconfig Certificates
+### Kubeconfig Certificates
 
 The `kubelet`, `kube-controller-manager` and `kube-scheduler` all need `kubeconfig` files with embedded client certificates,
 which allow them to connect to the `kube-apiserver`.
 
-In a future revision of this demo, we will show you how these client certificates could be generated from CSRs via TPP.
-
-Meanwhile, we will generate these using `kubeadm init phase kubeconfig` and a self-signed CA key and certificate.
-This is possible, because the kube-apiserver can be configured with multiple CA certificates,
-in which case it will check that clients present a client-auth certificate that has been signed by *one* of these CAs.
-
-First generate a self-signed certificate authority:
-
-```
-kubeadm init phase certs ca --cert-dir "${PWD}/pki.self-signed"
-```
-
-And append that the self-signed CA certificate to the existing `kubernetes/pki/ca.crt` PEM file.
-
-```
-cat pki.self-signed/ca.crt >> kubernetes/pki/ca.crt
-```
-
-Create all the kubeconfig files:
-
-```
-kubeadm init phase kubeconfig all \
-           --cert-dir "${PWD}/pki.self-signed" \
-           --kubeconfig-dir "kubernetes/" \
-           --control-plane-endpoint kind-control-plane \
-           --node-name kind-control-plane
-```
-
-Notice that we set the API server hostname and the kubelet node name to `kind-control-plane` to match the name used by [Kind].
-
+These `kubeconfig` files will have been generated by `kubeadm alpha certs generate-csr` above, but you now need to update those files with the 
 
 Modify the CA data in each of the KUBECONFIG files:
 
@@ -354,10 +353,17 @@ find "kubernetes/" -name '*.conf'  | \
 
 ```
 
-Notice that the client certificates embedded in each KUBECONFIG file are still signed by the self-signed CA.
-But the CA data in each KUBECONFIG file is set to the TPP CA.
-This is to allow the KUBECONFIG clients to verify the kube-apiserver serving certificate, which is signed by TPP CA.
-Also note that the CA PEM data is base64 encoded (without line-breaks).
+Add the signed client certificate data to each file:
+
+```
+find "${KUBERNETES_DIR}" -name '*.conf'  | \
+    while read path; do
+        context=$(kubectl --kubeconfig "${path}" config current-context)
+        kubectl --kubeconfig=${path} config set users.${context%%@kubernetes}.client-certificate-data "$(base64 -w 0 < "${path}.crt")"
+    done
+```
+
+Note that the CA and certificate PEM data is base64 encoded (without line-breaks).
 
 ### Create a Service Account Token Encryption Key Pair
 
@@ -415,11 +421,6 @@ Notice that we use the `--retain` flag, so that if Kind fails it will leave behi
 
 ## Discussion
 
-### kubeadm init phase kubeconfig all --crd-only
-
-It would be useful if `kubeadm` had the ability to generate CSR files for the KUBECONFIG files so that they can easily be signed by an external CA.
-It would then be useful to be able to use `kubeadm` to complete the KUBECONFIG files from an existing signed `.crt` file.
-
 ### kubeadm should have a pluggable automated signing mechanism
 
 To simplify this whole process of using `kubeadm init` with an external CA.
@@ -431,7 +432,6 @@ It is difficult to set up TPP with all the necessary CA templates and policy fol
 ### Venafi Cloud should support ECDSA certificates
 
 All the Kubernetes tools are hardcoded to create ECDSA keys and certificates, but these are not supported by Venafi Cloud.
-
 
 
 ## Links

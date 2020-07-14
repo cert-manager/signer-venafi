@@ -60,7 +60,7 @@ export KUBEBUILDER_ATTACH_CONTROL_PLANE_OUTPUT := "true"
 
 # Kubeadm
 KUBEADM_VERSION := 1.18.2
-export KUBEADM := ${BIN}/kubeadm-${KUBEADM_VERSION}
+export KUBEADM ?= ${BIN}/kubeadm-${KUBEADM_VERSION}
 
 export VCERT_INI := ${CURDIR}/vcert.ini
 
