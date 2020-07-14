@@ -77,7 +77,7 @@ and save it as `ca.venafi.crt`.
 The steps below have been wrapped in a script.
 See `./kubeadm-bootstrap.sh`.
 
-[![asciicast](https://asciinema.org/a/EqZtBp5BSemwQJRzC6w5PGrEr.svg)](https://asciinema.org/a/EqZtBp5BSemwQJRzC6w5PGrEr)
+[![asciicast](https://asciinema.org/a/Q7SdfrI94VuemPh23MJqGvMLu.svg)](https://asciinema.org/a/Q7SdfrI94VuemPh23MJqGvMLu)
 
 You can run the script by running `make demo-kubeadm-bootstrap` from the root of this repository.
 
