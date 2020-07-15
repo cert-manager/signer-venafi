@@ -7,8 +7,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-export SCRIPT="${BASH_SOURCE[0]}"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+export SCRIPT="${SCRIPT_DIR}/$(basename ${BASH_SOURCE[0]})"
 OWD="${PWD}"
 WORK_DIR="${OWD}/demo-kubeadm-bootstrap"
 KUBERNETES_DIR="${WORK_DIR}/etc_kubernetes"
@@ -47,12 +47,7 @@ function vcert_enroll() {
 }
 
 function create_cluster() {
-    log "Working in ${WORK_DIR}"
-    mkdir -p "${WORK_DIR}"
     pushd "${WORK_DIR}"
-
-    rm -rf "${CERTIFICATES_DIR}" "${KUBERNETES_DIR}"
-
     log "Creating certificates directory ${CERTIFICATES_DIR}"
     mkdir -p "${CERTIFICATES_DIR}"
 
@@ -97,20 +92,40 @@ function create_cluster() {
     log "Starting Kind"
     ${KIND} create cluster --retain --config kind.conf.yaml
 
-    log "Waiting for all nodes to be Ready"
-    kubectl wait --timeout 5m --for condition=Ready node --all
-
-    log "Cluster ready"
-    kubectl get node
-
-    sleep 10
-    tmux kill-session
+    sleep INFINITY
 }
 
+function start_operator() {
+    pushd "${WORK_DIR}"
+    watch --errexit --interval 1 "if test -e kind.conf.yaml; then exit 1; fi; tree ."
+
+    log "Waiting for Kube config"
+    until ${KIND} get kubeconfig > kube.config 2>/dev/null; do
+        sleep 1
+    done
+
+    export KUBECONFIG="${PWD}/kube.config"
+
+    log "Waiting for API server"
+    until kubectl get nodes; do
+        sleep 1
+    done
+
+    log "Starting signer-venafi"
+    ${ROOT_DIR}/bin/manager \
+               --signer-name=kubernetes.io/kube-apiserver-client-kubelet \
+               --vcert-config=${ROOT_DIR}/vcert.ini
+}
+
+
 function main() {
+    log "Working in ${WORK_DIR}"
+    rm -rf "${WORK_DIR}"
+    mkdir -p "${WORK_DIR}"
+
     tmux \
         new-session -d "${SCRIPT} create_cluster || sleep 10" \; \
-        split-window -d -h "watch --interval 1 tree ${WORK_DIR}" \; \
+        split-window -d -h "${SCRIPT} start_operator || sleep 10" \; \
         attach
     kind delete cluster
 }
