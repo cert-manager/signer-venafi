@@ -53,17 +53,16 @@ function vcert_enroll() {
               --config ${VCERT_INI} \
               --nickname "${nickname}" \
               --csr "file:${csr}" \
-              --pickup-id-file "${csr}.puid" \
+              --pickup-id-file "${cert}.puid" \
               --no-pickup
         rm "${csr}"
     done
 }
 
 function vcert_pickup() {
-    find ${KUBERNETES_DIR} -name '*.csr.puid' | \
+    find ${KUBERNETES_DIR} -name '*.crt.puid' | \
         while read pickup_id_file; do
-            csr="${pickup_id_file/%.csr.puid/.csr}"
-            cert="${pickup_id_file/%.csr.puid/.crt}"
+            cert="${pickup_id_file/%.crt.puid/.crt}"
             log "Collecting certificate ${cert}"
             vcert pickup \
               --config ${VCERT_INI} \
@@ -114,7 +113,14 @@ function create_cluster() {
     log "Starting Kind"
     ${KIND} create cluster --retain --config kind.conf.yaml
 
-    sleep INFINITY
+    log "Waiting for all nodes to be Ready"
+    kubectl wait --timeout 5m --for condition=Ready node --all
+
+    log "Cluster ready"
+    kubectl get node
+
+    sleep 10
+    tmux kill-session
 }
 
 function start_operator() {
