@@ -7,8 +7,9 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-export SCRIPT="${BASH_SOURCE[0]}"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+export SCRIPT="${SCRIPT_DIR}/$(basename ${BASH_SOURCE[0]})"
+export ROOT_DIR="$( cd "${SCRIPT_DIR}/../../.." && pwd )"
 OWD="${PWD}"
 WORK_DIR="${OWD}/demo-kubeadm-bootstrap"
 KUBERNETES_DIR="${WORK_DIR}/etc_kubernetes"
@@ -29,7 +30,12 @@ function log() {
 }
 
 function vcert_enroll() {
-    while read nickname csr; do
+    find ${KUBERNETES_DIR} -name '*.csr' | \
+    while read csr; do
+        nickname=$(basename $csr .csr)
+        if echo $csr | fgrep '/etcd/' >/dev/null; then
+            nickname="etcd-${nickname}"
+        fi
         cert="${csr/%.csr/.crt}"
         policy="$(echo "${nickname}" | grep -o '\(client\|server\|peer\)$' || true)"
         # Special case for etcd-server which needs both server and client usage
@@ -42,17 +48,32 @@ function vcert_enroll() {
             policy=client
         fi
         log "Enrolling CSR ${csr} with nickname ${nickname} to ${cert} with policy ${policy}"
-        vcert enroll --verbose -z "${VCERT_ZONE}\\${policy}"  --config ${VCERT_INI} --nickname "${nickname}" --csr "file:${csr}" --cert-file "${cert}"
+        vcert enroll \
+              -z "${VCERT_ZONE}\\${policy}"  \
+              --config ${VCERT_INI} \
+              --nickname "${nickname}" \
+              --csr "file:${csr}" \
+              --pickup-id-file "${cert}.puid" \
+              --no-pickup
+        rm "${csr}"
+    done
+}
+
+function vcert_pickup() {
+    find ${KUBERNETES_DIR} -name '*.crt.puid' | \
+        while read pickup_id_file; do
+            cert="${pickup_id_file/%.crt.puid/.crt}"
+            log "Collecting certificate ${cert}"
+            vcert pickup \
+              --config ${VCERT_INI} \
+              --pickup-id-file "${pickup_id_file}" \
+              --cert-file "${cert}"
+            rm "${pickup_id_file}"
     done
 }
 
 function create_cluster() {
-    log "Working in ${WORK_DIR}"
-    mkdir -p "${WORK_DIR}"
     pushd "${WORK_DIR}"
-
-    rm -rf "${CERTIFICATES_DIR}" "${KUBERNETES_DIR}"
-
     log "Creating certificates directory ${CERTIFICATES_DIR}"
     mkdir -p "${CERTIFICATES_DIR}"
 
@@ -63,15 +84,10 @@ function create_cluster() {
                --kubeconfig-dir ${KUBERNETES_DIR}
 
     log "Sending CSRs to Venafi for signing"
-    find ${KUBERNETES_DIR} -name '*.csr' | \
-        while read path; do
-            nickname=$(basename $path .csr)
-            if echo $path | fgrep '/etcd/' >/dev/null; then
-                nickname="etcd-${nickname}"
-            fi
-            echo $nickname $path
-        done | \
-            vcert_enroll
+    vcert_enroll
+
+    log "Getting signed certificates from Venafi"
+    vcert_pickup
 
     log "Setting Venafi CA in all kubeconfigs"
     venafi_ca_data=$(base64 -w 0 < "${SCRIPT_DIR}/ca.venafi.crt")
@@ -107,10 +123,37 @@ function create_cluster() {
     tmux kill-session
 }
 
+function start_operator() {
+    pushd "${WORK_DIR}"
+    watch --errexit --interval 1 "if test -e kind.conf.yaml; then exit 1; fi; tree ." < /dev/null || true
+
+    log "Waiting for Kube config"
+    until ${KIND} get kubeconfig > kube.config 2>/dev/null; do
+        sleep 1
+    done
+
+    export KUBECONFIG="${PWD}/kube.config"
+
+    log "Waiting for API server"
+    until kubectl get nodes; do
+        sleep 1
+    done
+
+    log "Starting signer-venafi"
+    ${ROOT_DIR}/bin/manager \
+               --signer-name=kubernetes.io/kube-apiserver-client-kubelet \
+               --vcert-config=${ROOT_DIR}/vcert.ini
+}
+
+
 function main() {
+    log "Working in ${WORK_DIR}"
+    rm -rf "${WORK_DIR}"
+    mkdir -p "${WORK_DIR}"
+
     tmux \
-        new-session -d "${SCRIPT} create_cluster || sleep 10" \; \
-        split-window -d -h "watch --interval 1 tree ${WORK_DIR}" \; \
+        new-session -d "${SCRIPT} create_cluster || sleep INFINITY" \; \
+        split-window -d -h "${SCRIPT} start_operator || sleep INFINITY" \; \
         attach
     kind delete cluster
 }
