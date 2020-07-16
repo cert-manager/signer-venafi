@@ -77,7 +77,7 @@ and save it as `ca.venafi.crt`.
 The steps below have been wrapped in a script.
 See `./kubeadm-bootstrap.sh`.
 
-[![asciicast](https://asciinema.org/a/Q7SdfrI94VuemPh23MJqGvMLu.svg)](https://asciinema.org/a/Q7SdfrI94VuemPh23MJqGvMLu)
+[![asciicast](https://asciinema.org/a/k2c0RI09V4HB3edxSeY2s0iML.svg)](https://asciinema.org/a/k2c0RI09V4HB3edxSeY2s0iML)
 
 You can run the script by running `make demo-kubeadm-bootstrap` from the root of this repository.
 
@@ -401,6 +401,12 @@ nodes:
     - containerPath: /etc/kubernetes/scheduler.conf
       hostPath: ${KUBERNETES_DIR}/scheduler.conf
       readOnly: true
+- role: worker
+  image: kindest/node:v1.18.2@sha256:7b27a6d0f2517ff88ba444025beae41491b016bc6af573ba467b70c5e8e0d85f
+  extraMounts:
+    - containerPath: /etc/kubernetes/pki/ca.crt
+      hostPath: ${KUBERNETES_DIR}/pki/ca.crt
+      readOnly: true
 ```
 
 Where `${KUBERNETES_DIR}` is absolute the path to `kubernetes/` which contains all the KUBECONFIG files and the `pki/` sub-directory.
@@ -418,6 +424,31 @@ kind create cluster --retain --config kind.conf.yaml
 ```
 
 Notice that we use the `--retain` flag, so that if Kind fails it will leave behind the Docker containers so that we can investigate the problem.
+
+## Start signer-venafi
+
+Kind will first start the control-plane node using keys and certificates provisioned earlier.
+The worker node, uses dynamically generated keys and certificates.
+Start the `signer-venafi` controller in another terminal, outside the cluster, in order to sign the certificates for the worker node:
+
+```
+until ${KIND} get kubeconfig > kube.config 2>/dev/null; do
+    sleep 1
+done
+
+export KUBECONFIG="${PWD}/kube.config"
+
+until kubectl get nodes; do
+    sleep 1
+done
+
+${ROOT_DIR}/bin/manager \
+           --signer-name=kubernetes.io/kube-apiserver-client-kubelet \
+           --vcert-config=${ROOT_DIR}/vcert.ini
+```
+
+The signer will watch the API server for `CertificateSigningRequest` resources for the kubelet and sign them using the Venafi API.
+The kubelet should then be able to join the cluster and the `kind` command will finish.
 
 ## Discussion
 
