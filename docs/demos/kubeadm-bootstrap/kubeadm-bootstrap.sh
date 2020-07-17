@@ -139,10 +139,10 @@ function start_operator() {
         sleep 1
     done
 
-    log "Starting signer-venafi"
-    ${ROOT_DIR}/bin/manager \
-               --signer-name=kubernetes.io/kube-apiserver-client-kubelet \
-               --vcert-config=${ROOT_DIR}/vcert.ini
+    log "Deploying signer-venafi"
+    make -C ${ROOT_DIR} docker-build kind-load deploy-kubelet-signer
+	  kubectl -n signer-venafi-system rollout status deployment signer-venafi-controller-manager
+    kubectl -n signer-venafi-system logs --follow deploy/signer-venafi-controller-manager manager
 }
 
 

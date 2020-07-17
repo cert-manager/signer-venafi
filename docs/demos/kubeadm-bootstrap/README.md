@@ -77,7 +77,7 @@ and save it as `ca.venafi.crt`.
 The steps below have been wrapped in a script.
 See `./kubeadm-bootstrap.sh`.
 
-[![asciicast](https://asciinema.org/a/k2c0RI09V4HB3edxSeY2s0iML.svg)](https://asciinema.org/a/k2c0RI09V4HB3edxSeY2s0iML)
+[![asciicast](https://asciinema.org/a/uLkd2LeSl8wrubsubYFiB7yoi.svg)](https://asciinema.org/a/uLkd2LeSl8wrubsubYFiB7yoi)
 
 You can run the script by running `make demo-kubeadm-bootstrap` from the root of this repository.
 
@@ -425,11 +425,11 @@ kind create cluster --retain --config kind.conf.yaml
 
 Notice that we use the `--retain` flag, so that if Kind fails it will leave behind the Docker containers so that we can investigate the problem.
 
-## Start signer-venafi
+## Deploy signer-venafi on the control plane node
 
 Kind will first start the control-plane node using keys and certificates provisioned earlier.
 The worker node, uses dynamically generated keys and certificates.
-Start the `signer-venafi` controller in another terminal, outside the cluster, in order to sign the certificates for the worker node:
+Deploy the `signer-venafi` controller to the control-plane node:
 
 ```
 until ${KIND} get kubeconfig > kube.config 2>/dev/null; do
@@ -442,13 +442,13 @@ until kubectl get nodes; do
     sleep 1
 done
 
-${ROOT_DIR}/bin/manager \
-           --signer-name=kubernetes.io/kube-apiserver-client-kubelet \
-           --vcert-config=${ROOT_DIR}/vcert.ini
+make -C ${ROOT_DIR} docker-build kind-load deploy-kubelet-signer
+kubectl -n signer-venafi-system rollout status deployment signer-venafi-controller-manager
+kubectl -n signer-venafi-system logs --follow deploy/signer-venafi-controller-manager manager
 ```
 
 The signer will watch the API server for `CertificateSigningRequest` resources for the kubelet and sign them using the Venafi API.
-The kubelet should then be able to join the cluster and the `kind` command will finish.
+The worker node Kubelet should then be able to join the cluster and the `kind` command will finish.
 
 ## Discussion
 

@@ -95,6 +95,13 @@ deploy: ${KUSTOMIZE}
 	cd config/manager && ${KUSTOMIZE} edit set image controller=${DOCKER_IMAGE}
 	${KUSTOMIZE} build config/default | kubectl apply -f -
 
+.PHONY: deploy-kubelet-signer
+deploy-kubelet-signer: ## Deploy as a Kubelet CSR signer
+deploy-kubelet-signer: ${KUSTOMIZE}
+	cd config/manager && ${KUSTOMIZE} edit set image controller=${DOCKER_IMAGE}
+	cp ${VCERT_INI} config/manager/vcert.ini
+	${KUSTOMIZE} build config/kubelet-signer | kubectl apply -f -
+
 .PHONY: manifests
 manifests: ## Generate manifests e.g. CRD, RBAC etc.
 manifests: ${CONTROLLER_GEN}
