@@ -145,6 +145,10 @@ generate: ${CONTROLLER_GEN}
 gomod: ## Update the go.mod and go.sum files
 	go mod tidy
 
+.PHONY: go-get-patch
+go-get-patch: ## Update Golang dependencies to latest patch versions
+	go get -u=patch -t
+
 .PHONY: docker-build
 docker-build: ## Build the docker image
 docker-build:
