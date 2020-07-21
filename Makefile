@@ -64,10 +64,22 @@ export KUBEADM ?= ${BIN}/kubeadm-${KUBEADM_VERSION}
 
 export VCERT_INI := ${CURDIR}/vcert.ini
 
+# Stop go build tools from silently modifying go.mod and go.sum
+export GOFLAGS := -mod=readonly
+
 # from https://suva.sh/posts/well-documented-makefiles/
 .PHONY: help
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[0-9a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+.PHONY: verify
+verify: ## Run all static checks
+verify: verify-manifests verify-generate verify-fmt vet
+
+# Run the supplied make target argument in a temporary workspace and diff the results.
+verify-%: FORCE
+	./hack/verify.sh ${MAKE} -s $*
+FORCE:
 
 .PHONY: test
 test: ## Run tests
