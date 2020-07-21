@@ -64,10 +64,22 @@ export KUBEADM ?= ${BIN}/kubeadm-${KUBEADM_VERSION}
 
 export VCERT_INI := ${CURDIR}/vcert.ini
 
+# Stop go build tools from silently modifying go.mod and go.sum
+export GOFLAGS := -mod=readonly
+
 # from https://suva.sh/posts/well-documented-makefiles/
 .PHONY: help
 help: ## Display this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[0-9a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+.PHONY: verify
+verify: ## Run all static checks
+verify: verify-manifests verify-generate verify-fmt vet
+
+# Run the supplied make target argument in a temporary workspace and diff the results.
+verify-%: FORCE
+	./hack/verify.sh ${MAKE} -s $*
+FORCE:
 
 .PHONY: test
 test: ## Run tests
@@ -95,12 +107,19 @@ deploy: ${KUSTOMIZE}
 	cd config/manager && ${KUSTOMIZE} edit set image controller=${DOCKER_IMAGE}
 	${KUSTOMIZE} build config/default | kubectl apply -f -
 
+.PHONY: deploy-example-signer
+deploy-example-signer: ## Deploy a signer for example.com/foo
+deploy-example-signer: ${KUSTOMIZE}
+	cd config/manager && ${KUSTOMIZE} edit set image controller=${DOCKER_IMAGE}
+	cp ${VCERT_INI} config/manager/vcert.ini
+	${KUSTOMIZE} build docs/demos/example-signer | kubectl apply -f -
+
 .PHONY: deploy-kubelet-signer
 deploy-kubelet-signer: ## Deploy as a Kubelet CSR signer
 deploy-kubelet-signer: ${KUSTOMIZE}
 	cd config/manager && ${KUSTOMIZE} edit set image controller=${DOCKER_IMAGE}
 	cp ${VCERT_INI} config/manager/vcert.ini
-	${KUSTOMIZE} build config/kubelet-signer | kubectl apply -f -
+	${KUSTOMIZE} build docs/demos/kubelet-signer | kubectl apply -f -
 
 .PHONY: manifests
 manifests: ## Generate manifests e.g. CRD, RBAC etc.
@@ -143,14 +162,9 @@ kind-load: ${KIND}
 	${KIND} load docker-image ${DOCKER_IMAGE}
 
 .PHONY: demo-kubelet-signer
-demo-kubelet-signer: ## A demo showing how to sign Kubelet client certificates
-demo-kubelet-signer: manager
-	docs/demos/kubelet-signer/kubelet-signer-demo.sh
-
-.PHONY: demo-kubeadm-bootstrap
-demo-kubeadm-bootstrap: ## A demo showing how to use kubeadm with a Venafi CA
-demo-kubeadm-bootstrap: ${KIND} ${KUBEADM} ${VCERT_INI}
-	docs/demos/kubeadm-bootstrap/kubeadm-bootstrap.sh
+demo-kubelet-signer: ## A demo showing how to set up a Kubernetes cluster with External CA and sign Kubelet client certificates
+demo-kubelet-signer: ${KIND} ${KUBEADM} ${VCERT_INI}
+	docs/demos/kubelet-signer/demo.sh
 
 # ==================================
 # Download: tools in ${BIN}

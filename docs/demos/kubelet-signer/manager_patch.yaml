@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+      containers:
+      - name: manager
+        args:
+        - "--enable-leader-election"
+        - "--signer-name=kubernetes.io/kube-apiserver-client-kubelet"

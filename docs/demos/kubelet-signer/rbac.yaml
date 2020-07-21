@@ -1,0 +1,26 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubelet-signer-role
+rules:
+- apiGroups:
+  - certificates.k8s.io
+  resourceNames:
+  - kubernetes.io/kube-apiserver-client-kubelet
+  resources:
+  - signers
+  verbs:
+  - sign
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubelet-signer-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubelet-signer-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: system
