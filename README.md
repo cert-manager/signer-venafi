@@ -2,28 +2,10 @@
 Experimental Venafi based signer for Kubernetes 1.18 CSR API https://github.com/kubernetes/enhancements/blob/master/keps/sig-auth/20190607-certificates-api.md#signers
 
 
-## Build and Deploy
+## Demos
 
-```
-cat <<EOF > config/manager/vcert.ini
-tpp_url = https://tpp.example.com/vedsdk
-tpp_user = <tppusername>
-tpp_password = <tpppassword>
-tpp_zone = TLS/SSL\Certificates\For\Example
-EOF
-
-make kind-create-cluster docker-build kind-load deploy
-kubectl -n signer-venafi-system logs deploy/signer-venafi-controller-manager manager --follow
-
-kubectl apply -f sample-csr.yaml
-kubectl certificate approve sample-csr
-```
-
-```
-kubectl get csr sample-csr
-NAME         AGE   SIGNERNAME        REQUESTOR          CONDITION
-sample-csr   36s   example.com/foo   kubernetes-admin   Approved,Issued
-```
+* [Example Signer](docs/demos/example-signer/README.md): demonstrates the simplest possible deployment, where the signer will sign CSRs having the signer name `example.com/foo`.
+* [Bootstrapping a Kubernetes Cluster using Kubeadm and signer-venafi](docs/demos/kubeadm-bootstrap/README.md): demonstrates how to bootstrap a Kubernetes using "Kubeadm External CA Mode" to create the control-plane certificates and `signer-venafi` to sign the dynamically generated Kubelet certificates.
 
 ## Test
 
@@ -46,12 +28,3 @@ EOF
 
 VCERT_CONFIG_FILE=$PWD/vcert.tpp.ini make test
 ```
-
-
-## Demo
-
-### Bootstrapping a Kubernetes cluster using Signer-Venafi
-
-[![asciicast](https://asciinema.org/a/oyXDX6zbcZB5quNW8Y7Ru3MZ4.svg)](https://asciinema.org/a/oyXDX6zbcZB5quNW8Y7Ru3MZ4)
-
-See `docs/demos/kubelet-signer/kubelet-signer-demo.sh`.

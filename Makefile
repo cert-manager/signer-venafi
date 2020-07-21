@@ -107,6 +107,13 @@ deploy: ${KUSTOMIZE}
 	cd config/manager && ${KUSTOMIZE} edit set image controller=${DOCKER_IMAGE}
 	${KUSTOMIZE} build config/default | kubectl apply -f -
 
+.PHONY: deploy-example-signer
+deploy-example-signer: ## Deploy a signer for example.com/foo
+deploy-example-signer: ${KUSTOMIZE}
+	cd config/manager && ${KUSTOMIZE} edit set image controller=${DOCKER_IMAGE}
+	cp ${VCERT_INI} config/manager/vcert.ini
+	${KUSTOMIZE} build docs/demos/example-signer | kubectl apply -f -
+
 .PHONY: deploy-kubelet-signer
 deploy-kubelet-signer: ## Deploy as a Kubelet CSR signer
 deploy-kubelet-signer: ${KUSTOMIZE}
