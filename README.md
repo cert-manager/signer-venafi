@@ -5,7 +5,7 @@ Experimental Venafi based signer for Kubernetes 1.18 CSR API https://github.com/
 ## Demos
 
 * [Example Signer](docs/demos/example-signer/README.md): demonstrates the simplest possible deployment, where the signer will sign CSRs having the signer name `example.com/foo`.
-* [Bootstrapping a Kubernetes Cluster using Kubeadm and signer-venafi](docs/demos/kubeadm-bootstrap/README.md): demonstrates how to bootstrap a Kubernetes using "Kubeadm External CA Mode" to create the control-plane certificates and `signer-venafi` to sign the dynamically generated Kubelet certificates.
+* [Bootstrapping a Kubernetes Cluster using Kubeadm and signer-venafi](docs/demos/kubelet-signer/README.md): demonstrates how to bootstrap a Kubernetes using "Kubeadm External CA Mode" to create the control-plane certificates and `signer-venafi` to sign the dynamically generated Kubelet certificates.
 
 ## Test
 

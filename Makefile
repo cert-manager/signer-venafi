@@ -119,7 +119,7 @@ deploy-kubelet-signer: ## Deploy as a Kubelet CSR signer
 deploy-kubelet-signer: ${KUSTOMIZE}
 	cd config/manager && ${KUSTOMIZE} edit set image controller=${DOCKER_IMAGE}
 	cp ${VCERT_INI} config/manager/vcert.ini
-	${KUSTOMIZE} build config/kubelet-signer | kubectl apply -f -
+	${KUSTOMIZE} build docs/demos/kubelet-signer | kubectl apply -f -
 
 .PHONY: manifests
 manifests: ## Generate manifests e.g. CRD, RBAC etc.
@@ -162,14 +162,9 @@ kind-load: ${KIND}
 	${KIND} load docker-image ${DOCKER_IMAGE}
 
 .PHONY: demo-kubelet-signer
-demo-kubelet-signer: ## A demo showing how to sign Kubelet client certificates
-demo-kubelet-signer: manager
-	docs/demos/kubelet-signer/kubelet-signer-demo.sh
-
-.PHONY: demo-kubeadm-bootstrap
-demo-kubeadm-bootstrap: ## A demo showing how to use kubeadm with a Venafi CA
-demo-kubeadm-bootstrap: ${KIND} ${KUBEADM} ${VCERT_INI}
-	docs/demos/kubeadm-bootstrap/kubeadm-bootstrap.sh
+demo-kubelet-signer: ## A demo showing how to set up a Kubernetes cluster with External CA and sign Kubelet client certificates
+demo-kubelet-signer: ${KIND} ${KUBEADM} ${VCERT_INI}
+	docs/demos/kubelet-signer/demo.sh
 
 # ==================================
 # Download: tools in ${BIN}
