@@ -74,7 +74,7 @@ help: ## Display this help
 
 .PHONY: verify
 verify: ## Run all static checks
-verify: verify-manifests verify-generate verify-fmt vet
+verify: verify-gomod verify-manifests verify-generate verify-fmt vet
 
 # Run the supplied make target argument in a temporary workspace and diff the results.
 verify-%: FORCE
@@ -140,6 +140,10 @@ vet:
 generate: ## Generate code
 generate: ${CONTROLLER_GEN}
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+
+.PHONY: gomod
+gomod: ## Update the go.mod and go.sum files
+	go mod tidy
 
 .PHONY: docker-build
 docker-build: ## Build the docker image
